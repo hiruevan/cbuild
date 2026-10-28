@@ -1,0 +1,24 @@
+﻿# === CBUILD ===
+
+CBUILD
+    - makefiles
+    # - calc_shim
+    - port_shim
+    - python
+
+PYTHON
+    - pillow
+
+CALCULATOR
+    - CEdev
+
+WINDOWS
+    - GCC
+    - cmake
+    - ninja
+    - SDL2
+
+LINUX
+    - WSL2
+    - Ubuntu
+
