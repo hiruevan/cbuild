@@ -467,9 +467,12 @@ function Install-cbuild() {
         & winget install Python.Python.3.11 --accept-package-agreements
     }
 
+    # Update pip
+    $ python -m pip install --upgrade pip
+
     # Install pillow
     & python -m pip install --quiet pillow
-    if ($LASTEXITCODE -ne 0) { Write-Warning "Pillow install failed; sprite helpers won't work." }
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Pillow install failed." }
 
     # === Install all the relevant cbuild files ===
     Write-Host ">>> Installing cbuild..."
@@ -486,6 +489,18 @@ CBUILD
 PYTHON
     - pillow
 
+CALCULATOR
+    - CEdev
+
+WINDOWS
+    - GCC
+    - cmake
+    - ninja
+    - SDL2
+
+LINUX
+    - WSL2
+    - Ubuntu
 '@
 
     Set-Content `
@@ -2388,12 +2403,6 @@ function Add-CBuildUserPath {
 function Install-CBuildCalculator {
     Write-Host ">>> Installing Calculator dependencies..."
 
-    # Update requirements.txt
-    Add-Content -Path (Join-Path $script:CBuildInstallDir "requirements.txt") -Value @"
-CALCULATOR
-    - CEdev
-
-"@
 
     $cedev = Join-Path $HOME "CEdev"
 
@@ -2436,16 +2445,6 @@ CALCULATOR
 function Install-CBuildWindows {
     Write-Host ">>> Installing Windows dependencies..."
 
-    # Update requirements.txt
-    Add-Content -Path (Join-Path $script:CBuildInstallDir "requirements.txt") -Value @"
-WINDOWS
-    - GCC
-    - cmake
-    - ninja
-    - SDL2
-
-"@
-
     $msys = "C:\msys64"
 
     # 1. MSYS2
@@ -2472,14 +2471,6 @@ WINDOWS
 
 function Install-CBuildLinux {
     Write-Host ">>> Installing Linux dependencies..."
-
-    # Update requirements.txt
-    Add-Content -Path (Join-Path $script:CBuildInstallDir "requirements.txt") -Value @"
-LINUX
-    - WSL2
-    - Ubuntu
-
-"@
 
     # 1. WSL itself
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {

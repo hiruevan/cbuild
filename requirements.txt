@@ -21,4 +21,3 @@ WINDOWS
 LINUX
     - WSL2
     - Ubuntu
-
