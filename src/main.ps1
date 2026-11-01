@@ -4,7 +4,7 @@ $script:CBuildCalcShimDir = Join-Path $script:CBuildInstallDir "calc_shim"
 $script:CBuildMakefileDir = Join-Path $script:CBuildInstallDir "makefiles"
 $script:CBuildHelperDir = Join-Path $HOME "python"
 
-$script:CbiuldVersion = "1.2.13"
+$script:CbiuldVersion = "1.2.14"
 
 function cbuild {
     $cbuildArgs = @($args | ForEach-Object { [string]$_ })
