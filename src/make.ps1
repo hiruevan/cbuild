@@ -10,10 +10,20 @@ function Invoke-cbuildmake() {
 
     # Build calculator
     if ($runCal) {
-        Write-Host "`n>>> Configuring calculator build..."
+        Write-Host "`n>>> Preparing Calculator toolchain..."
+        if (-not $env:CEDEV) {
+            $env:CEDEV = [Environment]::GetEnvironmentVariable("CEDEV", "User")
+        }
+        if (-not $env:CEDEV) { $env:CEDEV = Join-Path $HOME "CEdev" }
+        if (-not (Test-Path (Join-Path $env:CEDEV "meta\makefile.mk"))) {
+            throw "CE toolchain not found at $env:CEDEV. Run 'cbuild install -cal'."
+        }
+        $env:CEDEV = $env:CEDEV.Replace('\', '/')
+        $env:Path = "$(Join-Path $env:CEDEV 'bin');$env:Path"
+        Write-Host ">>> Configuring calculator build..."
         New-CBuildFile (Join-Path $script:CBuildMakefileDir "CEMakefile.mk") "Makefile" $cfg
 
-        Write-Host "`n>>> Building calculator target..."
+        Write-Host ">>> Building calculator target..."
         & make
 
         # Clean up
@@ -34,7 +44,7 @@ function Invoke-cbuildmake() {
         & cmake -S . -B $buildDir -G Ninja `
             -DCMAKE_BUILD_TYPE=Release
 
-        Write-Host "`n>>> Building Windows target..."
+        Write-Host ">>> Building Windows target..."
         & cmake --build $buildDir
 
         # Clean up
@@ -57,7 +67,7 @@ function Invoke-cbuildmake() {
 
         & wsl.exe --cd "$($PWD.Path)" cmake -S . -B $buildDIr -G Ninja -DCMAKE_BUILD_TYPE=Release
 
-        Write-Host "`n>>> Building Linux target through WSL2..."
+        Write-Host ">>> Building Linux target through WSL2..."
         & wsl.exe --cd "$($PWD.Path)" cmake --build $buildDIr --parallel
 
         # Clean up

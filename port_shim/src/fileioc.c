@@ -19,7 +19,7 @@ static char *base_dir = NULL;
 static const char *get_base(void)
 {
     if (!base_dir) {
-        char *p = SDL_GetPrefPath("cbuild-apps", "data");
+        char *p = SDL_GetPrefPath("cbuild-apps", CBUILD_APP_NAME);
         base_dir = p ? p : SDL_strdup("./");
     }
     return base_dir;

@@ -13,4 +13,4 @@ OBJDIR = CBUILDDIR/cal
 
 LTO = NO
 
-include $(CEDEV)\meta\makefile.mk
+include $(CEDEV)/meta/makefile.mk

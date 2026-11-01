@@ -14,7 +14,6 @@ volatile uint16_t kb_Data[8];
  *   Enter   = Return            Graph/Trace/Zoom/Window/Y= = F5/F4/F3/F2/F1
  *   Stat = S, Prgm = P, Vars = V, Math = M
  *   0-9 = number row, + - * / = keypad
- * Closing the window behaves like the game's Mode+2nd force-exit combo.
  */
 typedef struct { SDL_Scancode sc; uint8_t group; uint8_t mask; } KeyMap;
 

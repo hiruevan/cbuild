@@ -38,6 +38,7 @@ add_library(ce_shim STATIC
 
 target_compile_definitions(ce_shim PRIVATE
     CE_WINDOW_TITLE="${PROJECT_TITLE}"
+    CBUILD_APP_NAME="${BUILD_NAME}"
 )
 
 target_include_directories(ce_shim PUBLIC

@@ -115,7 +115,7 @@ function Install-cbuilddir() {
     Set-Content `
         -LiteralPath (Join-Path $includeDir "keypadc.h") `
         -Value @'
-<port_shim/include/keypadc.h
+<port_shim/include/keypadc.h>
 '@ `
         -Encoding utf8
     Set-Content `

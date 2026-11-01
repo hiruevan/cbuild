@@ -13,6 +13,21 @@ function cbuild {
     $requirementsDir = Join-Path $script:CBuildInstallDir "requirements.txt"
     $isInstalled = Test-Path -Path $requirementsDir
 
+    $action = $cbuildArgs[0].ToLowerInvariant()
+    $flags = @($cbuildArgs | Select-Object -Skip 1)
+
+    # Determine targets
+    $forceRun = $flags -contains "-force"
+    $runAll = $flags -contains "-all"
+    $runCal = $flags -contains "-cal" -or $runAll
+    $runWin = $flags -contains "-win" -or $runAll
+    $runLnx = $flags -contains "-lnx" -or $runAll
+
+    # === INSTALL command ===
+    if ($action -eq "install") {
+        Install-cbuild -force $forceRun -runCal $runCal -runWin $runWin -runLnx $runLnx
+    }
+
     if (-not $isInstalled) {
         Write-Output "cbuild is not installed. Run 'cbuild install' to install it."
         return
@@ -33,9 +48,6 @@ function cbuild {
         Write-Output "cbuild version " $Script:CbiuldVersion
         return
     }
-
-    $action = $cbuildArgs[0].ToLowerInvariant()
-    $flags = @($cbuildArgs | Select-Object -Skip 1)
 
     # Validate command
     if ($action -notin @("clean", "make", "install", "uninstall")) {
@@ -63,21 +75,9 @@ function cbuild {
         return
     }
 
-    # Determine targets
-    $forceRun = $flags -contains "-force"
-    $runAll = $flags -contains "-all"
-    $runCal = $flags -contains "-cal" -or $runAll
-    $runWin = $flags -contains "-win" -or $runAll
-    $runLnx = $flags -contains "-lnx" -or $runAll
-
     # === UNINSTALL command ===
     if ($action -eq "uninstall") {
         Uninstall-cbuild -Full $runAll -Force $forceRun
-    }
-
-    # === INSTALL command ===
-    if ($action -eq "install") {
-        Install-cbuild -force $forceRun -runCal $runCal -runWin $runWin -runLnx $runLnx
     }
 
     # === CLEAN command ===

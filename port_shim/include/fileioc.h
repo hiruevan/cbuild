@@ -1,6 +1,9 @@
 ﻿#ifndef CE_SHIM_FILEIOC_H
 #define CE_SHIM_FILEIOC_H
 
+#ifndef CBUILD_APP_NAME
+#define CBUILD_APP_NAME "data"
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
