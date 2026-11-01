@@ -1,39 +1,100 @@
-cbuild - C For Calculator and other Platforms Build Helper
+cbuild - C Build Helper for Calculator and Desktop Platforms
+Version: 1.2.14
 
 Usage:
-  cbuild -help
   cbuild --version
-  cbuild install [-cal] [-win] [-lnx] [-all]
+  cbuild -help
+  cbuild install [-cal] [-win] [-lnx [architecture ...]] [-all] [-force]
   cbuild uninstall [-all] [-force]
-  cbuild clean [-cal] [-win] [-lnx] [-all]
-  cbuild make  [-cal] [-win] [-lnx]
+  cbuild make  (-cal | -win | -lnx [architecture ...] | -all)
+  cbuild clean (-cal | -win | -lnx [architecture ...] | -all)
 
 Commands:
-  uninstall Deletes all dependencies and removes cbuild
-  install   Installs cbuild dependancies
-  clean     Configure or clean build targets
-  make      Build selected targets
+  install     Installs cbuild and selected target dependencies.
+  uninstall   Removes cbuild and selected installed dependencies.
+  make        Builds the selected target(s). Run from a project directory
+              containing Project.mk.
+  clean       Removes generated build and binary output directories.
 
 Install flags:
-  -cal      ...
-  -win      ...
-  -lnx      Installs relevant dependencies for calculator, windows and linux
-  -all      Installs all dependencies
-  -force    Reinstalls cbuild even if it is already installed
+  -cal        Installs the TI-84 Plus CE calculator toolchain (CEdev).
+  -win        Installs Windows desktop build dependencies.
+  -lnx        Installs WSL2/Linux build dependencies (x86_64 by default).
+  -all        Installs calculator, Windows, and default Linux dependencies.
+  -force      Forces the base cbuild installation to be recreated.
 
-Uninstall flags:
-  -all      Also uninstalls MSYS2 and the WSL build packages
-  -force    Skips the confirmation prompt
+Linux architecture arguments (must follow -lnx):
+  x86_64      Standard 64-bit Intel/AMD Linux (default).
+  aarch64     64-bit ARM Linux cross-compilation.
+  armhf       32-bit ARM hard-float Linux cross-compilation.
 
-Clean flags:
-  -cal      Cleans calculator obj
-  -win      Cleans Windows obj and prepares for build
-  -lnx      Cleans Linux obj and prepares for build
-  -all      Cleans all the builds, delete obj and bin
+Examples:
+  cbuild install
+  cbuild install -cal
+  cbuild install -win
+  cbuild install -lnx
+  cbuild install -lnx aarch64
+  cbuild install -lnx armhf
+  cbuild install -lnx aarch64 armhf
+  cbuild install -all
 
 Make flags:
-  -cal      Compiles and builds for calculator
-  -win      Builds for Windows
-  -lnx      Builds for Linux through WSL2
+  -cal        Builds the calculator target using CEdev and GNU Make.
+  -win        Builds the Windows desktop target using CMake and Ninja.
+  -lnx        Builds Linux through WSL2 (x86_64 by default).
+  -all        Builds calculator, Windows, and default Linux targets.
 
-NOTE: If you encounter an error with the MAKE command, run CLEAN first.
+Examples:
+  cbuild make -cal
+  cbuild make -win
+  cbuild make -lnx
+  cbuild make -lnx aarch64
+  cbuild make -lnx armhf
+  cbuild make -lnx aarch64 armhf
+  cbuild make -all
+
+Clean flags:
+  -cal        Removes the calculator build and binary directories.
+  -win        Removes the Windows build and binary directories.
+  -lnx        Removes the selected Linux architecture's build and binary
+              directories (x86_64 by default).
+  -all        Recursively removes the complete BUILD and BIN directories
+              configured in Project.mk.
+
+Examples:
+  cbuild clean -cal
+  cbuild clean -win
+  cbuild clean -lnx
+  cbuild clean -lnx aarch64
+  cbuild clean -lnx armhf
+  cbuild clean -all
+
+Uninstall flags:
+  -all        Also attempts to remove MSYS2 and Linux build packages.
+  -force      Skips the uninstall confirmation prompt.
+
+Project configuration:
+  cbuild make and cbuild clean read Project.mk from the current directory.
+  NAME is required. Other settings are optional:
+
+    NAME        Project name (required)
+    DESCRIPTION Project description (defaults to NAME)
+    TARGET      Output target name (defaults to NAME)
+    BIN         Binary output directory (defaults to bin)
+    BUILD       Build/intermediate directory (defaults to build)
+    SRCDIR      C source directory (defaults to src)
+    INCLUDE     Header directory (defaults to include)
+    RESOURCES   Resource directory (defaults to resources)
+    SRC         Source file(s) (defaults to main.c)
+
+Linux architecture names are positional arguments after -lnx. They cannot
+be combined with -all. The default Linux architecture is x86_64.
+
+Notes:
+  - Run commands in Windows PowerShell.
+  - Linux builds run through WSL2.
+  - make and clean must be run from the project root containing Project.mk.
+  - clean -all deletes the entire configured BUILD and BIN directories.
+    Do not keep unrelated files in those directories.
+  - If a build fails due to stale generated files, clean the affected target
+    and try building again.
