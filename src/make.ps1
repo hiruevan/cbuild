@@ -1,9 +1,18 @@
+$script:CBuildLinuxArchs = @{
+    x86_64  = @{ Dir = "lnx-x86_64";  Toolchain = $null }
+    aarch64 = @{ Dir = "lnx-aarch64"; Toolchain = "toolchain-aarch64.cmake"
+                 DebArch = "arm64";   Compiler  = "gcc-aarch64-linux-gnu" }
+    armhf   = @{ Dir = "lnx-armhf";   Toolchain = "toolchain-armhf.cmake"
+                 DebArch = "armhf";   Compiler  = "gcc-arm-linux-gnueabihf" }
+}
+
 function Invoke-cbuildmake() {
     param (
         [bool]$all,
         [bool]$runCal,
         [bool]$runWin,
-        [bool]$runLnx
+        [bool]$runLnx,
+        [string[]]$lnxArchs = @("x86_64")
     )
     # Get build config
     $cfg = Read-CBuildConfig
@@ -57,25 +66,48 @@ function Invoke-cbuildmake() {
 
     # Build linux
     if ($runLnx) {
-        Write-Host "`n>>> Configuring Linux build..."
-
-        $winShim  = Join-Path $HOME "cbuild/port_shim"
+        $winShim   = Join-Path $HOME "cbuild/port_shim"
         $linuxShim = (& wsl.exe wslpath -a ($winShim.Replace('\', '/'))).Trim()
 
+        # The template is identical for every architecture, so generate it once
         New-CBuildFile (Join-Path $script:CBuildMakefileDir "CMakeLists.txt") "CMakeLists.txt" $cfg -Shim $linuxShim
-        $buildDir = $cfg.BUILD + "/lnx"
 
-        & wsl.exe --cd "$($PWD.Path)" cmake -S . -B $buildDIr -G Ninja -DCMAKE_BUILD_TYPE=Release
+        try {
+            foreach ($arch in $lnxArchs) {
+                $entry    = $script:CBuildLinuxArchs[$arch]
+                $buildDir = "$($cfg.BUILD)/$($entry.Dir)"
 
-        Write-Host ">>> Building Linux target through WSL2..."
-        & wsl.exe --cd "$($PWD.Path)" cmake --build $buildDIr --parallel
+                if ($entry.Toolchain) {
+                    & wsl.exe dpkg -s $entry.Compiler 2>&1 | Out-Null
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Cross compiler for '$arch' is not installed. Run 'cbuild install -lnx $arch'."
+                    }
+                }
 
-        # Clean up
-        Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force
+                Write-Host "`n>>> Configuring Linux ($arch) build..."
+                $cmakeArgs = @(
+                    "-S", ".", "-B", $buildDir, "-G", "Ninja",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DCBUILD_LNX_DIR=$($entry.Dir)"
+                )
+                if ($entry.Toolchain) {
+                    $tcWin   = Join-Path $script:CBuildMakefileDir $entry.Toolchain
+                    $tcLinux = (& wsl.exe wslpath -a ($tcWin.Replace('\', '/'))).Trim()
+                    $cmakeArgs += "-DCMAKE_TOOLCHAIN_FILE=$tcLinux"
+                }
 
-        if ($LASTEXITCODE -ne 0) {
-            throw "Linux build failed: exit code $LASTEXITCODE."
+                & wsl.exe --cd "$($PWD.Path)" cmake @cmakeArgs
+                if ($LASTEXITCODE -ne 0) { throw "Linux ($arch) configure failed: exit code $LASTEXITCODE." }
+
+                Write-Host ">>> Building Linux ($arch) target through WSL2..."
+                & wsl.exe --cd "$($PWD.Path)" cmake --build $buildDir --parallel
+                if ($LASTEXITCODE -ne 0) { throw "Linux ($arch) build failed: exit code $LASTEXITCODE." }
+            }
+        }
+        finally {
+            Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force -ErrorAction SilentlyContinue
         }
     }
+
     Write-Host "`All build jobs completed successfully." -ForegroundColor Green
 }

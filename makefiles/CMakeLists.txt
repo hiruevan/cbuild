@@ -16,12 +16,14 @@ set(SRC_DIR "${CMAKE_SOURCE_DIR}/CSRCDIR"
     CACHE PATH "Folder with the .c files"
 )
 
+set(CBUILD_LNX_DIR "lnx" CACHE STRING "Linux output subfolder")
+
 if(WIN32)
     set(PLATFORM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/CBINDIR/win")
 elseif(APPLE)
     set(PLATFORM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/CBINDIR/mac")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(PLATFORM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/CBINDIR/lnx")
+    set(PLATFORM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/CBINDIR/${CBUILD_LNX_DIR}")
 else()
     message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}")
 endif()

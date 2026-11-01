@@ -3,6 +3,7 @@
 
 #ifndef CBUILD_APP_NAME
 #define CBUILD_APP_NAME "data"
+#endif
 
 #include <stdint.h>
 #include <stddef.h>

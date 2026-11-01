@@ -3,7 +3,8 @@ function Invoke-cbuildclean() {
         [bool]$all,
         [bool]$runCal,
         [bool]$runWin,
-        [bool]$runLnx
+        [bool]$runLnx,
+        [string[]]$lnxArchs = @("x86_64")
     )
     # Get build config
     $cfg = Read-CBuildConfig
@@ -43,10 +44,17 @@ function Invoke-cbuildclean() {
     }
 
     # Clean linux
-    if ($action -eq "clean" -and $runLnx) {
-        Write-Host "`n>>> Cleaning Linux build..."
-        & $removeFolder "$($cfg.BUILD)/lnx"
-        & $removeFolder "$($cfg.BIN)/lnx"
+    if ($runLnx) {
+        foreach ($arch in $lnxArchs) {
+            $entry = $script:CBuildLinuxArchs[$arch]
+            Write-Host "`n>>> Cleaning Linux ($arch) build..."
+            & $removeFolder "$($cfg.BUILD)/$($entry.Dir)"
+            & $removeFolder "$($cfg.BIN)/$($entry.Dir)"
+        }
+        if ($runAll) {
+            & $removeFolder "$($cfg.BUILD)/lnx"
+            & $removeFolder "$($cfg.BIN)/lnx"
+        }
     }
 
     Write-Host "`Cleaning jobs completed successfully." -ForegroundColor Green

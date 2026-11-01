@@ -3,7 +3,8 @@ function Install-cbuild() {
         [bool]$force,
         [bool]$runCal,
         [bool]$runWin,
-        [bool]$runLnx
+        [bool]$runLnx,
+        [string[]]$lnxArchs = @("x86_64")
     )
     # Install basic cbuild profile
     Install-cbuilddir -force $forceRun -runOthers ($runCal -or $runWin -or $runLnx)
@@ -20,7 +21,7 @@ function Install-cbuild() {
 
     # Install linux profile
     if ($runLnx) {
-        Install-cbuildLinux
+        Install-cbuildLinux -lnxArchs $lnxArchs
     }
 
     Write-Host "`ncbuild installed successfully." -ForegroundColor Green
@@ -170,6 +171,18 @@ function Install-cbuilddir() {
 <makefiles/CMakeLists.txt>
 '@ `
         -Encoding utf8
+            Set-Content `
+        -LiteralPath (Join-Path $makefileDir "toolchain-aarch64.cmake") `
+        -Value @'
+<makefiles/toolchain-aarch64.cmake>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $makefileDir "toolchain-armhf.cmake") `
+        -Value @'
+<makefiles/toolchain-armhf.cmake>
+'@ `
+        -Encoding utf8
 
     # --- Python Helpers ---
     # directory
@@ -209,7 +222,14 @@ function Install-cbuilddir() {
     $cbuildScript = Join-Path $HOME "cbuild\cbuild.ps1"
     . $cbuildScript
     $profileLine = "`n. `"$cbuildScript`""
-    Add-Content -Path $PROFILE -Value $profileLine
+    $profileDir = Split-Path -Parent $PROFILE
+    if (-not (Test-Path -LiteralPath $profileDir)) {
+        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+    }
+    $existing = if (Test-Path -LiteralPath $PROFILE) { Get-Content -LiteralPath $PROFILE -Raw } else { "" }
+    if ($existing -notmatch 'cbuild[\\/]cbuild\.ps1') {
+        Add-Content -LiteralPath $PROFILE -Value $profileLine
+    }
 
     # Remove self (installer)
     if (-not [string]::Equals(
@@ -283,9 +303,15 @@ function Install-CBuildWindows {
     $msys = "C:\msys64"
 
     # 1. MSYS2
-    if (-not (Test-Path (Join-Path $msys "usr\bin\bash.exe"))) {
+    $bash = Join-Path $msys "usr\bin\bash.exe"
+    if (-not (Test-Path $bash)) {
         & winget install MSYS2.MSYS2 --accept-package-agreements --accept-source-agreements
-        if (-not (Test-Path (Join-Path $msys "usr\bin\bash.exe"))) {
+
+        if (-not (Test-Path $bash)) {
+            Write-Warning "winget did not place MSYS2 at $msys (it may still list it as installed). Retrying with --force..."
+            & winget install MSYS2.MSYS2 --force --accept-package-agreements --accept-source-agreements
+        }
+        if (-not (Test-Path $bash)) {
             throw "MSYS2 not found at $msys after install. If it went elsewhere, adjust `$msys."
         }
     }
@@ -305,6 +331,9 @@ function Install-CBuildWindows {
 }
 
 function Install-CBuildLinux {
+    param (
+        [string[]]$lnxArchs
+    )
     Write-Host ">>> Installing Linux dependencies..."
 
     # 1. WSL itself
@@ -318,7 +347,9 @@ function Install-CBuildLinux {
 
     if ([string]::IsNullOrWhiteSpace($distros)) {
         Write-Host "Installing WSL2 with Ubuntu (may require admin + a reboot)..."
-        & wsl.exe --install -d Ubuntu
+        Write-Host "If a wsl terminal opens, enter 'exit' to continue"
+        & wsl.exe --install -d Ubuntu-22.04
+        & wsl.exe --set-default Ubuntu-22.04
         Write-Host "`nReboot if prompted, finish the Ubuntu first-run setup,"
         Write-Host "then run 'cbuild install -lnx' again to install the packages." `
             -ForegroundColor Yellow
@@ -329,4 +360,46 @@ function Install-CBuildLinux {
     & wsl.exe -u root -- bash -c `
         "apt-get update && apt-get install -y build-essential cmake ninja-build libsdl2-dev"
     if ($LASTEXITCODE -ne 0) { throw "Failed to install Linux build dependencies in WSL." }
+
+    # 3. Cross-compile architectures (anything with a toolchain file)
+    $cross = @($lnxArchs | Where-Object { $script:CBuildLinuxArchs[$_].Toolchain })
+    if ($cross.Count -gt 0) {
+        $entries = @($cross | ForEach-Object { $script:CBuildLinuxArchs[$_] })
+        $archCsv = ($entries | ForEach-Object { $_.DebArch }) -join ","
+        $pkgCsv  = ($entries | ForEach-Object { $_.Compiler; "libsdl2-dev:$($_.DebArch)" }) -join ","
+
+        $crossScript = @'
+set -e
+ARCHS="${1//,/ }"
+PKGS="${2//,/ }"
+. /etc/os-release
+
+# Restrict the normal mirrors to amd64 (they have no ARM packages)
+SRC=/etc/apt/sources.list.d/ubuntu.sources
+if [ -f "$SRC" ]; then
+  grep -q '^Architectures:' "$SRC" || sed -i '/^Types:/a Architectures: amd64' "$SRC"
+else
+  sed -i -E '/^deb /{/\[arch=/!s/^deb /deb [arch=amd64] /}' /etc/apt/sources.list
+fi
+
+# ARM packages come from the ports mirror
+cat > /etc/apt/sources.list.d/cbuild-ports.sources <<EOF
+Types: deb
+URIs: http://ports.ubuntu.com/ubuntu-ports
+Suites: $VERSION_CODENAME $VERSION_CODENAME-updates $VERSION_CODENAME-security
+Components: main universe
+Architectures: $ARCHS
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+
+for a in $ARCHS; do dpkg --add-architecture "$a"; done
+apt-get update
+apt-get install -y $PKGS
+# end
+'@
+
+        Write-Host ">>> Installing cross-compile toolchains ($archCsv)..."
+        ($crossScript -replace "`r", "") | & wsl.exe -u root -- bash -s -- $archCsv $pkgCsv
+        if ($LASTEXITCODE -ne 0) { throw "Failed to install cross-compile dependencies in WSL." }
+    }
 }

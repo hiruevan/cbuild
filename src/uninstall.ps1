@@ -45,6 +45,17 @@ function Uninstall-cbuild {
             Write-Host ">>> Removing WSL build packages..."
             & wsl.exe -u root -- bash -c "apt-get remove -y cmake ninja-build libsdl2-dev"
             if ($LASTEXITCODE -ne 0) { Write-Warning "Could not remove the WSL packages." }
+
+            # Cross-compile toolchains: anything in the table with a toolchain file
+            $cross = @($script:CBuildLinuxArchs.Values | Where-Object { $_.Toolchain })
+            foreach ($entry in $cross) {
+                $deb = $entry.DebArch
+                Write-Host ">>> Removing $deb cross-compile packages..."
+                & wsl.exe -u root -- bash -c "apt-get remove -y $($entry.Compiler); apt-get purge -y '*:$deb'; dpkg --remove-architecture $deb" 2>&1 | Out-Null
+            }
+            if ($cross.Count -gt 0) {
+                & wsl.exe -u root -- bash -c "rm -f /etc/apt/sources.list.d/cbuild-ports.sources; apt-get autoremove -y" 2>&1 | Out-Null
+            }
         }
     }
     
@@ -86,15 +97,32 @@ function Remove-CBuildDirectory {
     }
 }   
 
+function Get-CBuildProfilePaths {
+    $docs  = [Environment]::GetFolderPath('MyDocuments')   # follows OneDrive redirection
+    $paths = @($PROFILE.CurrentUserCurrentHost, $PROFILE.CurrentUserAllHosts)
+    foreach ($dir in "PowerShell", "WindowsPowerShell") {
+        foreach ($name in "profile.ps1", "Microsoft.PowerShell_profile.ps1", "Microsoft.VSCode_profile.ps1") {
+            $paths += Join-Path $docs "$dir\$name"
+        }
+    }
+    $paths | Where-Object { $_ } | Sort-Object -Unique |
+        Where-Object { Test-Path -LiteralPath $_ }
+}
+
 function Remove-CBuildProfileLine {
-    if (-not (Test-Path -LiteralPath $PROFILE)) { return }
+    foreach ($path in Get-CBuildProfilePaths) {
+        try {
+            $lines = @(Get-Content -LiteralPath $path)
+            $kept  = @($lines | Where-Object { $_ -notmatch 'cbuild[\\/]cbuild\.ps1' })
 
-    $lines = @(Get-Content -LiteralPath $PROFILE)
-    $kept  = @($lines | Where-Object { $_ -notmatch 'cbuild[\\/]cbuild\.ps1' })
-
-    if ($kept.Count -ne $lines.Count) {
-        [System.IO.File]::WriteAllLines($PROFILE, [string[]]$kept,
-            (New-Object System.Text.UTF8Encoding $false))
-        Write-Host "Removed cbuild from $PROFILE"
+            if ($kept.Count -ne $lines.Count) {
+                [System.IO.File]::WriteAllLines($path, [string[]]$kept,
+                    (New-Object System.Text.UTF8Encoding $true))
+                Write-Host "Removed cbuild from $path"
+            }
+        }
+        catch {
+            Write-Warning "Could not update $path ($($_.Exception.Message)). Remove the cbuild line manually."
+        }
     }
 }
