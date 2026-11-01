@@ -1,0 +1,39 @@
+cbuild - C For Calculator and other Platforms Build Helper
+
+Usage:
+  cbuild -help
+  cbuild --version
+  cbuild install [-cal] [-win] [-lnx] [-all]
+  cbuild uninstall [-all] [-force]
+  cbuild clean [-cal] [-win] [-lnx] [-all]
+  cbuild make  [-cal] [-win] [-lnx]
+
+Commands:
+  uninstall Deletes all dependencies and removes cbuild
+  install   Installs cbuild dependancies
+  clean     Configure or clean build targets
+  make      Build selected targets
+
+Install flags:
+  -cal      ...
+  -win      ...
+  -lnx      Installs relevant dependencies for calculator, windows and linux
+  -all      Installs all dependencies
+  -force    Reinstalls cbuild even if it is already installed
+
+Uninstall flags:
+  -all      Also uninstalls MSYS2 and the WSL build packages
+  -force    Skips the confirmation prompt
+
+Clean flags:
+  -cal      Cleans calculator obj
+  -win      Cleans Windows obj and prepares for build
+  -lnx      Cleans Linux obj and prepares for build
+  -all      Cleans all the builds, delete obj and bin
+
+Make flags:
+  -cal      Compiles and builds for calculator
+  -win      Builds for Windows
+  -lnx      Builds for Linux through WSL2
+
+NOTE: If you encounter an error with the MAKE command, run CLEAN first.

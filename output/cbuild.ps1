@@ -1,4 +1,4 @@
-$script:CBuildInstallDir = Join-Path $HOME "cbuild"
+﻿$script:CBuildInstallDir = Join-Path $HOME "cbuild"
 $script:CBuildPortShimDir = Join-Path $script:CBuildInstallDir "port_shim"
 $script:CBuildCalcShimDir = Join-Path $script:CBuildInstallDir "calc_shim"
 $script:CBuildMakefileDir = Join-Path $script:CBuildInstallDir "makefiles"
@@ -863,7 +863,7 @@ static char *base_dir = NULL;
 static const char *get_base(void)
 {
     if (!base_dir) {
-        char *p = SDL_GetPrefPath("ce-desktop-port", "game");
+        char *p = SDL_GetPrefPath("cbuild", "data");
         base_dir = p ? p : SDL_strdup("./");
     }
     return base_dir;
@@ -1957,7 +1957,7 @@ def image_to_sprite(image_path, out_path, palette, width=None, height=None):
 
     print(
         f"Converted {os.path.basename(image_path)} "
-        f"→ {os.path.basename(out_path)} ({w}x{h})"
+        f"â†’ {os.path.basename(out_path)} ({w}x{h})"
     )
 
 
@@ -2267,7 +2267,7 @@ def sprite_to_png(sprite_path, out_path, scale=1):
 
         print(
             f"Converted {os.path.basename(sprite_path)} "
-            f"→ {os.path.basename(out_path)} "
+            f"â†’ {os.path.basename(out_path)} "
             f"({width}x{height})"
         )
 
@@ -2495,3 +2495,4 @@ function Install-CBuildLinux {
         "apt-get update && apt-get install -y build-essential cmake ninja-build libsdl2-dev"
     if ($LASTEXITCODE -ne 0) { throw "Failed to install Linux build dependencies in WSL." }
 }
+

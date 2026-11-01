@@ -19,7 +19,7 @@ static char *base_dir = NULL;
 static const char *get_base(void)
 {
     if (!base_dir) {
-        char *p = SDL_GetPrefPath("ce-desktop-port", "game");
+        char *p = SDL_GetPrefPath("cbuild-apps", "data");
         base_dir = p ? p : SDL_strdup("./");
     }
     return base_dir;
@@ -27,7 +27,7 @@ static const char *get_base(void)
 
 static void make_path(const char *name, char *out, size_t n)
 {
-    snprintf(out, n, "%s%s.8xv", get_base(), name);
+    snprintf(out, n, "%s%s.sav", get_base(), name);
 }
 
 uint8_t ti_Open(const char *name, const char *mode)
