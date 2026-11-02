@@ -11,13 +11,24 @@ PYTHON
 
 CALCULATOR
     - CEdev
+    - GNU Make
 
 WINDOWS
+    - MSYS2 UCRT64
     - GCC
-    - cmake
-    - ninja
+    - CMake
+    - Ninja
     - SDL2
 
 LINUX
     - WSL2
     - Ubuntu
+    - SDL2
+    x86-64
+        - GCC
+        - CMake
+        - Ninja
+    aarch64
+        - AArch64 cross-compiler
+    armhf
+        - ARM hard-float cross-compiler
