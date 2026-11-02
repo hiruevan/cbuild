@@ -2,7 +2,7 @@ $script:CBuildInstallDir = Join-Path $HOME "cbuild"
 $script:CBuildToolchainDir = Join-Path $script:CBuildInstallDir "toolchains"
 $script:CBuildHelperDir = Join-Path $HOME "python"
 
-$script:CbiuldVersion = "1.3.23"
+$script:CbiuldVersion = "1.4.10"
 
 function cbuild {
     $cbuildArgs = @($args | ForEach-Object { [string]$_ })

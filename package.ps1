@@ -88,5 +88,6 @@ function complete-cbuild() {
 
     # Reload cbuild
     . ./cbuild.ps1
+    # cbuild uninstall -force
     & cbuild install -force
 }

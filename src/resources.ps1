@@ -13,6 +13,14 @@ function Invoke-CBuildResources {
     $resPath = Join-Path $PWD.Path $Cfg.RESOURCES
 
     if (Test-Path -LiteralPath $resPath -PathType Container) {
+        $python = $script:CBuildPython # Get python (required for this script)
+        if (-not $python) {
+            $python = Get-CBuildPython
+        }
+        if (-not $python) {
+            throw "Python is unavailable. Run 'cbuild install' again."
+        }
+        
         $resRoot = (Resolve-Path -LiteralPath $resPath).ProviderPath.TrimEnd('\')
 
         # --- .sprite files ---
@@ -25,7 +33,10 @@ function Invoke-CBuildResources {
             $hdr    = if ($prefix) { "res_$prefix.h" } else { "res_root.h" }
 
             Write-Host "    sprites: $(if ($rel) { $rel } else { '(root)' })"
-            & python $compiler $g.Name (Join-Path $genDir $hdr) $prefix | Out-Null
+            & $python.Path @($python.Args) $compiler `
+                $g.Name `
+                (Join-Path $genDir $hdr) `
+                $prefix | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "Sprite compile failed for $($g.Name)." }
             $headers += $hdr
         }

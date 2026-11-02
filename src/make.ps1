@@ -79,6 +79,10 @@ function Invoke-cbuildmake() {
 
     # Build windows
     if ($runWin) {
+        # Check dependencies
+        if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+            throw "cmake not found. Run 'cbuild install -win'"
+        }
         Write-Host "`n>>> Generating Windows resources..."
         Invoke-CBuildResources -Cfg $cfg -OutDir "$($cfg.BUILD)/win"
 
@@ -103,6 +107,10 @@ function Invoke-cbuildmake() {
 
     # Build linux
     if ($runLnx) {
+        # Check dependencies
+        if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+            throw "WSL not found. Run 'cbuild install -lnx'"
+        }
         $winShim   = Join-Path $HOME "cbuild/desk_shim"
         $linuxShim = (& wsl.exe wslpath -a ($winShim.Replace('\', '/'))).Trim()
 

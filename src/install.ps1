@@ -62,12 +62,16 @@ function Install-cbuilddir() {
     )
 
     Write-Host "`n>>> Preparing cbuild installation..."
+    $ErrorActionPreference = "Stop"
     $installDir = Join-Path $HOME "cbuild"
 
     if ((Test-Path -LiteralPath (Join-Path $installDir "requirements.txt")) -and -not $force) {
         if (-not $runOthers) {
             Write-Host "cbuild is already installed! Use -force to reinstall."
+
+            Install-CBuildProfile
         }
+
         return
     }
     
@@ -93,18 +97,12 @@ function Install-cbuilddir() {
             -Destination $targetFullPath -Force
     }
 
-    # Install python
-    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-        Write-Host "[Notice] Python is required to use cbuild. >>> Installing python..."
-        & winget install Python.Python.3.11 --accept-package-agreements
-    }
+    # Remove Mark of the Web from both scripts.
+    Unblock-CBuildScript -Path $sourceFullPath
+    Unblock-CBuildScript -Path $targetFullPath
 
-    # Update pip
-    & python -m pip install --upgrade pip
-
-    # Install pillow
-    & python -m pip install --quiet pillow
-    if ($LASTEXITCODE -ne 0) { Write-Warning "Pillow install failed." }
+    # Install and validate Python dependencies.
+    $script:CBuildPython = Install-CBuildPython
 
     # === Install all the relevant cbuild files ===
     Write-Host ">>> Installing cbuild..."
@@ -244,28 +242,18 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
     
-    # === Finalize Instilation ===
+    # === Finalize Installation ===
 
-    # Make profile load script
-    $cbuildScript = Join-Path $HOME "cbuild\cbuild.ps1"
-    . $cbuildScript
-    $profileLine = ". `"$cbuildScript`""
-    $profileDir = Split-Path -Parent $PROFILE
-    if (-not (Test-Path -LiteralPath $profileDir)) {
-        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-    }
-    $existing = if (Test-Path -LiteralPath $PROFILE) { Get-Content -LiteralPath $PROFILE -Raw } else { "" }
-    if ($existing -notmatch 'cbuild[\\/]cbuild\.ps1') {
-        Add-Content -LiteralPath $PROFILE -Value $profileLine
-    }
+    Install-CBuildProfile
 
-    # Remove self (installer)
+    # Remove original installer if running from another location.
     if (-not [string]::Equals(
         $sourceFullPath,
         $targetFullPath,
         [System.StringComparison]::OrdinalIgnoreCase
     )) {
-        Remove-Item -Path $PSCommandPath -Force
+        Remove-Item -LiteralPath $PSCommandPath -Force `
+            -ErrorAction SilentlyContinue
     }
 }
 
