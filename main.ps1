@@ -18,13 +18,38 @@ $script:CBuildCommands = @{
 
 function ConvertTo-CBuildFlags {
     param([string[]]$Tokens)
-    $flags = [ordered]@{}; $cur = $null
+
+    $flags = [ordered]@{}
+    $cur = $null
+
     foreach ($t in $Tokens) {
-        if ($t -like '-*') { $cur = $t.TrimStart('-').ToLowerInvariant(); $flags[$cur] = @() }
-        elseif ($cur)      { $flags[$cur] += $t.ToLowerInvariant() }
-        else               { throw "Unexpected argument '$t'." }
+        if ($t -like '-*') {
+            $cur = $t.TrimStart('-').ToLowerInvariant()
+
+            if (-not $cur) {
+                throw "Invalid empty flag."
+            }
+
+            if ($flags.Contains($cur)) {
+                throw "Duplicate flag '-$cur'."
+            }
+
+            $flags[$cur] = @()
+        }
+        elseif ($cur) {
+            # Only Linux accepts positional arguments (architectures).
+            if ($cur -ne 'lnx') {
+                throw "Flag '-$cur' does not accept arguments. Unexpected value '$t'."
+            }
+
+            $flags[$cur] += $t.ToLowerInvariant()
+        }
+        else {
+            throw "Unexpected argument '$t'."
+        }
     }
-    $flags
+
+    return $flags
 }
 
 function cbuild {

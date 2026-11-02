@@ -1,18 +1,20 @@
 # cbuild
 
-**cbuild** is a Windows PowerShell build helper for C projects. It provides a single command to build TI-84 Plus CE calculator programs and desktop builds for Windows and Linux, including optional Linux cross-compilation for ARM targets.
+**cbuild** is a Windows PowerShell build helper for C projects targeting the TI-84 Plus CE calculator, Windows desktop, and Linux desktop. It generates the appropriate Makefile or CMake project, compiles the project, and organizes the outputs.
 
-| Target | Build system / toolchain | Output target directory |
+Current source version: **1.5.8**.
+
+| Target | Build environment | Output directory |
 |---|---|---|
-| TI-84 Plus CE (`-cal`) | CEdev and GNU Make | `cal` |
-| Windows (`-win`) | MSYS2 UCRT64, GCC, CMake, Ninja, SDL2 | `win` |
-| Linux x86-64 (`-lnx`) | WSL2, Ubuntu, GCC, CMake, Ninja, SDL2 | `lnx-x86_64` |
-| Linux ARM64 (`-lnx aarch64`) | WSL2, Ubuntu, AArch64 cross-compiler | `lnx-aarch64` |
-| Linux ARM hard-float (`-lnx armhf`) | WSL2, Ubuntu, ARM hard-float cross-compiler | `lnx-armhf` |
+| TI-84 Plus CE (`-cal`) | CEdev + GNU Make | `bin/cal` |
+| Windows desktop (`-win`) | MSYS2 UCRT64 + GCC + CMake + Ninja + SDL2 | `bin/win` |
+| Linux x86-64 (`-lnx`) | WSL2 Ubuntu + GCC + CMake + Ninja + SDL2 | `bin/lnx-x86_64` |
+| Linux ARM64 (`-lnx aarch64`) | WSL2 Ubuntu + AArch64 cross-compiler + SDL2 | `bin/lnx-aarch64` |
+| Linux ARM hard-float (`-lnx armhf`) | WSL2 Ubuntu + ARM hard-float cross-compiler + SDL2 | `bin/lnx-armhf` |
 
-The Windows and Linux desktop builds use the included `port_shim` to implement selected calculator APIs on desktop. It is a compatibility layer, not a guarantee that every CE-specific API or behavior is available.
+The Windows and Linux desktop builds use `desk_shim`, a compatibility layer that implements selected calculator APIs on desktop. It does not guarantee that every CE-specific API or behavior is supported.
 
-> **Platform:** Installation and the `cbuild` command run in Windows PowerShell. Linux builds are performed through WSL2.
+> **Platform note:** cbuild's installer and command-line interface currently run in Windows PowerShell. Linux builds run through WSL2. **macOS is not yet a supported cbuild target.** The CMake template contains an initial Apple bundle branch, but there is not yet a macOS install/build/clean/export workflow. See [macOS support: implementation plan](#macos-support-implementation-plan).
 
 ## Contents
 
@@ -21,58 +23,66 @@ The Windows and Linux desktop builds use the included `port_shim` to implement s
 - [Project setup](#project-setup)
 - [Building](#building)
 - [Cleaning](#cleaning)
+- [Exporting](#exporting)
 - [Linux architectures](#linux-architectures)
 - [Sprite utilities](#sprite-utilities)
 - [Commands and flags](#commands-and-flags)
 - [Output layout](#output-layout)
 - [Troubleshooting](#troubleshooting)
+- [macOS support: implementation plan](#macos-support-implementation-plan)
 - [Uninstalling](#uninstalling)
 - [Building and packaging cbuild itself](#building-and-packaging-cbuild-itself)
 
 ## Requirements
 
 - Windows 10/11 with Windows PowerShell.
-- Internet access to download the installer dependencies and target toolchains.
+- Internet access to download installer dependencies and target toolchains.
 - `winget` for automatic installation of some Windows dependencies.
-- Python and `pip`. The base installer attempts to install Python 3.11 if `python` is unavailable.
-- A C project with a `Project.mk` file for `make` and `clean`.
+- Python and `pip`. The base installer attempts to install Python 3.11 if it cannot find Python.
+- A C project with a `Project.mk` file for `make`, `clean`, and `export`.
 
 Target-specific requirements:
 
 | Target | Requirements |
 |---|---|
-| Calculator | CEdev toolchain |
-| Windows | MSYS2 with UCRT64 GCC, CMake, Ninja, and SDL2 |
+| Calculator | CEdev toolchain and GNU Make |
+| Windows | MSYS2 UCRT64 GCC, CMake, Ninja, and SDL2 |
 | Linux | WSL2 with an Ubuntu distribution, build-essential, CMake, Ninja, and SDL2 development files |
 | Linux ARM cross-build | The corresponding cross-compiler and SDL2 development package for the target architecture |
 
-The install commands can install most of these dependencies. Some steps may require administrator approval or a restart.
+The install commands install most dependencies. Some steps may require administrator approval or a restart.
 
 ## Installation
 
-### 1. Get the project
+### 1. Get the repository
 
-Clone or download this repository. Open PowerShell in the repository's root directory (the directory containing `package.ps1` and `src`).
+Clone or download this repository. Open PowerShell in the repository root (the folder containing `package.ps1` and `src`).
 
-### 2. Generate and install the cbuild command
+### 2. Generate and install cbuild
 
-The repository is split into source files. Run the packaging function to combine the scripts and embedded resources into a standalone `cbuild.ps1`:
+The repository is split into source files. Run the packaging function to combine the PowerShell modules and embedded resources into a standalone `cbuild.ps1`:
 
 ```powershell
 . .\package.ps1
-complete-cbuild
+Complete-CBuild
 ```
 
-This creates `cbuild.ps1` in the repository root and runs its base installation.
+This generates `cbuild.ps1`, loads it, and runs the base installation. To generate the script without installing it:
 
-The installer places the installed command and shared files under:
+```powershell
+Complete-CBuild -NoInstall
+```
+
+The installed files are placed under your home directory:
 
 ```text
 $HOME\
 ├── cbuild\
 │   ├── cbuild.ps1
-│   ├── makefiles\
-│   └── port_shim\
+│   ├── help.txt
+│   ├── requirements.txt
+│   ├── desk_shim\
+│   └── toolchains\
 └── python\
     ├── compilespritefolder.py
     ├── createspritefolder.py
@@ -80,9 +90,9 @@ $HOME\
     └── spritetopngfolder.py
 ```
 
-It also installs Pillow, creates or updates your PowerShell profile so it dot-sources the installed script, and makes the `cbuild` function available in new PowerShell sessions.
+The installer also installs Pillow, registers the cbuild script in your PowerShell profile, and makes the `cbuild` function available in new PowerShell sessions.
 
-If you already generated `cbuild.ps1`, you can run it directly:
+If `cbuild.ps1` has already been generated, run it directly:
 
 ```powershell
 .\cbuild.ps1 install
@@ -90,9 +100,9 @@ If you already generated `cbuild.ps1`, you can run it directly:
 
 If PowerShell blocks the script, check your execution-policy settings and any organization-managed restrictions. Do not change a managed policy without permission.
 
-### 3. Install the target dependencies
+### 3. Install the target toolchains
 
-Install only the toolchains you plan to use:
+Install only the targets you intend to build:
 
 ```powershell
 cbuild install -cal
@@ -100,41 +110,43 @@ cbuild install -win
 cbuild install -lnx
 ```
 
-Or install all three target environments:
+Or install every currently supported target environment:
 
 ```powershell
 cbuild install -all
 ```
 
-For Linux, the first installation may enable/install WSL2 and Ubuntu 22.04. If prompted, restart Windows and finish Ubuntu's first-run setup (create the Linux user). Then run `cbuild install -lnx` again.
+**Important:** `install -all` currently reads `Project.mk` and uses its `PLATFORMS` setting to decide which toolchains to install. Run it from a project directory containing `Project.mk`. If you only want the base cbuild files, use `cbuild install` without `-all`.
 
-For ARM Linux cross-compilation, specify the architecture after `-lnx`:
+The first Linux installation may enable/install WSL2 and Ubuntu 22.04. If prompted, restart Windows and finish Ubuntu's first-run setup (create the Linux user), then run `cbuild install -lnx` again.
+
+For Linux ARM cross-compilation, pass the architecture after `-lnx`:
 
 ```powershell
 cbuild install -lnx aarch64
 cbuild install -lnx armhf
 ```
 
-The default Linux install (`cbuild install -lnx`) installs the standard x86-64 build dependencies. You can install multiple architecture names in one invocation:
+You can install both in one command:
 
 ```powershell
 cbuild install -lnx aarch64 armhf
 ```
 
-### 4. Verify
+### 4. Verify the installation
 
-Open a new PowerShell session, then run:
+Open a new PowerShell session and run:
 
 ```powershell
 cbuild --version
 cbuild -help
 ```
 
-The version reported by this source is **1.2.14**.
+The current source version is `1.5.8`.
 
 ## Project setup
 
-Run `cbuild make` and `cbuild clean` from your C project's root directory. cbuild reads `Project.mk` from the current working directory; it does not search parent directories.
+Run `cbuild make`, `cbuild clean`, and `cbuild export` from your C project's root directory. cbuild reads `Project.mk` from the current working directory; it does not search parent directories.
 
 Create a `Project.mk` file:
 
@@ -144,42 +156,50 @@ DESCRIPTION = Example C game
 TARGET = ExampleGame
 BIN = bin
 BUILD = build
+EXPORT = export
 SRCDIR = src
 INCLUDE = include
 RESOURCES = resources
 SRC = main.c
+PLATFORMS = cal win lnx
 ```
 
-`NAME` is the only required setting. The other settings are optional and default as follows:
+`NAME` is the only required setting. All other settings are optional:
 
 | Setting | Purpose | Default |
 |---|---|---|
 | `NAME` | Project name | Required |
 | `DESCRIPTION` | Project description | `NAME` |
-| `TARGET` | Executable / output target name | `NAME` |
+| `TARGET` | Output target name | `NAME` |
 | `BIN` | Compiled output directory | `bin` |
-| `BUILD` | Generated build files and intermediate files | `build` |
+| `BUILD` | Build/intermediate directory | `build` |
+| `EXPORT` | Export destination directory | `export` |
 | `SRCDIR` | C source directory | `src` |
 | `INCLUDE` | Header directory | `include` |
 | `RESOURCES` | Resource directory | `resources` |
-| `SRC` | Source file(s) passed to the build template | `main.c` |
+| `SRC` | Entry-point C source file, relative to `SRCDIR` | `main.c` |
+| `PLATFORMS` | Targets selected by `make -all` and `install -all` | `cal win lnx` |
 
-Paths are relative to the project root. The configuration parser expects one simple `KEY = VALUE` assignment per line. Blank lines and full-line comments beginning with `#` are ignored. Keys are case-insensitive; values may optionally be surrounded by double quotes. The parser does not implement full Makefile syntax or variable expansion.
+`PLATFORMS` accepts `cal`, `win`, `lnx`, `lnx-x86_64`, `lnx-aarch64`, and `lnx-armhf`. Separate values with spaces, commas, or semicolons. `lnx` selects the default x86-64 Linux target.
 
-A basic project could look like this:
+Paths are relative to the project root. The configuration parser supports one simple `KEY = VALUE` assignment per line. Blank lines and full-line comments beginning with `#` are ignored; keys are case-insensitive and values may be surrounded by double quotes. This is not a full Makefile parser: variable expansion and general Makefile syntax are not supported.
+
+A basic project layout:
 
 ```text
 ExampleGame/
 ├── Project.mk
 ├── src/
-│   └── main.c
+│   ├── main.c
+│   └── game.c
 ├── include/
 ├── resources/
 ├── build/       # Generated build files
-└── bin/         # Compiled output
+├── bin/         # Compiled outputs
+└── export/      # Optional exported copies
 ```
 
-The exact source files and folders depend on your project and the build template.
+The CMake desktop template recursively includes `.c` files under `SRCDIR`. `SRC` identifies the entry-point file and must exist. Keep shared code portable across targets, and isolate platform-specific code behind compile-time checks or separate source files.
 
 ## Building
 
@@ -191,7 +211,7 @@ Open PowerShell in the directory containing `Project.mk`.
 cbuild make -cal
 ```
 
-cbuild generates a temporary `Makefile` from the calculator template, runs `make`, and removes the generated file afterward.
+cbuild generates a temporary `Makefile`, runs GNU Make with CEdev, then removes the generated Makefile. The resulting calculator program is placed in `bin/cal` and receives the `.8xp` extension.
 
 ### Windows desktop
 
@@ -199,7 +219,7 @@ cbuild generates a temporary `Makefile` from the calculator template, runs `make
 cbuild make -win
 ```
 
-cbuild generates a temporary `CMakeLists.txt`, configures a Ninja build in `build\win`, builds the target, and removes the generated CMake file.
+cbuild generates a temporary `CMakeLists.txt`, configures a Ninja build in `build/win`, builds the target, and removes the generated CMake file. The desktop compatibility layer uses SDL2.
 
 ### Linux desktop (x86-64)
 
@@ -207,25 +227,30 @@ cbuild generates a temporary `CMakeLists.txt`, configures a Ninja build in `buil
 cbuild make -lnx
 ```
 
-Linux builds run through WSL2. The build directory is `build/lnx-x86_64`.
+Linux builds run through WSL2. The build directory is `build/lnx-x86_64`; the executable is placed in `bin/lnx-x86_64` with an `.elf` suffix.
 
-### Build every target
+### Linux ARM
+
+```powershell
+cbuild make -lnx aarch64
+cbuild make -lnx armhf
+```
+
+Install the matching cross-compiler and SDL2 development package first. The generated binaries must run on a compatible Linux system and CPU architecture.
+
+### Build every configured target
 
 ```powershell
 cbuild make -all
 ```
 
-Or build targets individually to make failures easier to isolate:
+`make -all` uses `PLATFORMS` in `Project.mk`. With the default configuration, it builds calculator, Windows, and Linux x86-64. ARM Linux targets are included only when explicitly listed in `PLATFORMS`.
 
-```powershell
-cbuild make -cal
-cbuild make -win
-cbuild make -lnx
-```
+Build targets individually when diagnosing failures so one target's error does not obscure another.
 
 ## Cleaning
 
-Clean one target before rebuilding if you need to remove stale CMake configuration, object files, or output:
+Clean a target before rebuilding to remove its CMake cache, object files, generated build files, and binary output:
 
 ```powershell
 cbuild clean -cal
@@ -233,55 +258,56 @@ cbuild clean -win
 cbuild clean -lnx
 ```
 
-Linux clean defaults to the x86-64 target. To clean a specific Linux architecture, provide its name:
+Linux clean defaults to x86-64. Specify an architecture to clean a different Linux build:
 
 ```powershell
 cbuild clean -lnx aarch64
 cbuild clean -lnx armhf
 ```
 
-Clean all configured build and binary output directories:
+Clean everything under the configured build and binary directories:
 
 ```powershell
 cbuild clean -all
 ```
 
-> **Warning:** `clean -all` recursively deletes the entire directories named by `BUILD` and `BIN` in `Project.mk`, not just cbuild-generated target subdirectories. Do not store unrelated files in those directories.
+> **Warning:** `clean -all` recursively deletes the entire directories named by `BUILD` and `BIN` in `Project.mk`, not just cbuild-generated subdirectories. Do not store unrelated files in those directories.
+
+## Exporting
+
+`export` copies built output files from `BIN` into `EXPORT`, preserving their relative subdirectory structure:
+
+```powershell
+cbuild export -cal
+cbuild export -win
+cbuild export -lnx
+cbuild export -lnx aarch64
+cbuild export -all
+```
+
+With the default settings, files are copied into `export/cal`, `export/win`, and `export/lnx-x86_64`, as applicable. The current exporter recognizes `.8xp`, `.8xv`, `.exe`, and `.elf` files. It does not currently package macOS `.app` bundles.
 
 ## Linux architectures
 
-The supported Linux architecture names are:
-
-| Architecture argument | Target directory | Description |
+| Architecture argument | Output directory | Description |
 |---|---|---|
 | `x86_64` | `lnx-x86_64` | Standard 64-bit Intel/AMD Linux |
-| `aarch64` | `lnx-aarch64` | 64-bit ARM Linux (for example, Raspberry Pi OS 64-bit) |
+| `aarch64` | `lnx-aarch64` | 64-bit ARM Linux |
 | `armhf` | `lnx-armhf` | 32-bit ARM hard-float Linux |
 
-The default architecture is `x86_64`, so this is equivalent to `cbuild make -lnx x86_64`:
-
-```powershell
-cbuild make -lnx
-```
-
-Build an ARM target by passing its architecture after `-lnx`:
+The default is `x86_64`, so `cbuild make -lnx` is equivalent to `cbuild make -lnx x86_64`.
 
 ```powershell
 cbuild make -lnx aarch64
 cbuild make -lnx armhf
-```
-
-You can request more than one Linux architecture in the same command:
-
-```powershell
 cbuild make -lnx aarch64 armhf
 ```
 
-Install the matching cross-compilation dependencies first with `cbuild install -lnx aarch64` or `cbuild install -lnx armhf`. The generated binaries are cross-compiled; they must be run on a compatible machine or device and operating-system environment.
+The corresponding dependencies must be installed first. Cross-compiled binaries are not runnable on the Windows host; run them on a compatible Linux device or emulator.
 
 ## Sprite utilities
 
-The installer places the Python helper scripts in `$HOME\python` and installs Pillow. Invoke them with Python:
+The installer places the Python helper scripts in `$HOME\python` and installs Pillow. Examples:
 
 ```powershell
 python "$HOME\python\spritetopngfolder.py" <input_folder> <output_folder> [scale]
@@ -290,41 +316,41 @@ python "$HOME\python\compilespritefolder.py"
 python "$HOME\python\generatetileset.py"
 ```
 
-`spritetopngfolder.py` converts `.sprite` files in an input folder to PNG files in an output folder. Its optional `scale` argument defaults to `1` and must be at least `1`. The other scripts accept their own arguments; run them without arguments to see their usage instructions.
+`spritetopngfolder.py` converts `.sprite` files to PNG files. Its optional scale defaults to `1` and must be at least `1`. The other scripts accept their own arguments; run them without arguments to display their usage.
 
 ## Commands and flags
 
 | Command | Purpose |
 |---|---|
 | `cbuild --version` | Display the installed version |
-| `cbuild -help` / `cbuild --help` | Display command help |
+| `cbuild -help` | Display command help |
 | `cbuild install` | Install or repair the base cbuild files |
-| `cbuild install -cal` | Install calculator dependencies |
-| `cbuild install -win` | Install Windows dependencies |
-| `cbuild install -lnx` | Install standard Linux x86-64 dependencies |
+| `cbuild install -cal` | Install CEdev |
+| `cbuild install -win` | Install MSYS2/UCRT64 desktop dependencies |
+| `cbuild install -lnx` | Install WSL2/Linux x86-64 dependencies |
 | `cbuild install -lnx aarch64` | Install Linux ARM64 cross-build dependencies |
 | `cbuild install -lnx armhf` | Install Linux ARM hard-float cross-build dependencies |
-| `cbuild install -all` | Install all target dependencies |
-| `cbuild install -force` | Force recreation of the base cbuild installation |
+| `cbuild install -all` | Install toolchains selected by `PLATFORMS` |
+| `cbuild install -force` | Recreate the base cbuild installation |
 | `cbuild make -cal` | Build the calculator target |
-| `cbuild make -win` | Build the Windows target |
-| `cbuild make -lnx [architecture]` | Build the selected Linux architecture (defaults to `x86_64`) |
-| `cbuild make -all` | Build calculator, Windows, and default Linux targets |
-| `cbuild clean -cal` | Remove calculator build and binary output folders |
-| `cbuild clean -win` | Remove Windows build and binary output folders |
-| `cbuild clean -lnx [architecture]` | Remove the selected Linux build and binary output folders |
-| `cbuild clean -all` | Remove the configured `BUILD` and `BIN` directories |
+| `cbuild make -win` | Build the Windows desktop target |
+| `cbuild make -lnx [architecture]` | Build a Linux target; defaults to x86-64 |
+| `cbuild make -all` | Build targets listed in `PLATFORMS` |
+| `cbuild clean -cal` | Clean calculator build/output |
+| `cbuild clean -win` | Clean Windows build/output |
+| `cbuild clean -lnx [architecture]` | Clean the selected Linux build/output |
+| `cbuild clean -all` | Delete the configured `BUILD` and `BIN` directories |
+| `cbuild export -cal/-win/-lnx` | Copy selected target files into `EXPORT` |
+| `cbuild export -all` | Copy recognized output files from all of `BIN` into `EXPORT` |
 | `cbuild uninstall` | Remove cbuild, CEdev, and cbuild-added PATH/profile entries |
 | `cbuild uninstall -all` | Also attempt to remove MSYS2 and Linux build packages |
 | `cbuild uninstall -force` | Skip the uninstall confirmation prompt |
 
-`-force` on `install` forces the base installation to be recreated; it does not guarantee every existing target dependency is reinstalled.
-
-Linux architecture arguments are positional and must follow `-lnx`. They are supported only with `-lnx`, not with `-all`.
+Linux architecture arguments are positional and must follow `-lnx`. They cannot be combined with `-all`.
 
 ## Output layout
 
-With the default `BUILD` and `BIN` settings, the generated layout is:
+With the default `BUILD`, `BIN`, and `EXPORT` settings:
 
 ```text
 build/
@@ -340,18 +366,28 @@ bin/
 ├── lnx-x86_64/
 ├── lnx-aarch64/
 └── lnx-armhf/
+
+export/
+├── cal/
+├── win/
+└── lnx-x86_64/
 ```
 
-Only directories for targets you have built will exist. The actual top-level directory names follow the `BUILD` and `BIN` settings in `Project.mk`.
+Only directories for targets that have been built or exported will exist.
 
 ## Troubleshooting
 
 ### `cbuild` is not recognized
 
-1. Confirm that `complete-cbuild` or the standalone installer completed successfully.
+1. Confirm the installer completed successfully.
 2. Open a new PowerShell session so your profile is loaded.
-3. Run `Get-Content $PROFILE` and confirm it dot-sources `$HOME\cbuild\cbuild.ps1`.
-4. If needed, load it manually:
+3. Inspect the profile:
+
+   ```powershell
+   Get-Content $PROFILE
+   ```
+
+4. If necessary, load the installed script manually:
 
    ```powershell
    . "$HOME\cbuild\cbuild.ps1"
@@ -359,9 +395,9 @@ Only directories for targets you have built will exist. The actual top-level dir
 
 ### `Project.mk` not found
 
-Run the command from the project root, where `Project.mk` is located. cbuild does not search parent directories.
+Run `make`, `clean`, or `export` from the project root containing `Project.mk`. cbuild does not search parent directories.
 
-### `make` or a compiler is not found for the calculator build
+### Calculator toolchain not found
 
 Run:
 
@@ -369,7 +405,7 @@ Run:
 cbuild install -cal
 ```
 
-Confirm CEdev is installed under `$HOME\CEdev` (unless your `CEDEV` environment variable points elsewhere), then open a new PowerShell session and retry.
+By default, CEdev is expected at `$HOME\CEdev`. If you installed it elsewhere, set the user `CEDEV` environment variable to the CEdev directory, then open a new PowerShell session.
 
 ### Windows build tools are missing
 
@@ -379,41 +415,28 @@ Run:
 cbuild install -win
 ```
 
-The installer uses MSYS2 at `C:\msys64` and its UCRT64 toolchain. Confirm `C:\msys64\ucrt64\bin` is on your user PATH, then reopen PowerShell.
+The installer expects MSYS2 at `C:\msys64` and uses its UCRT64 toolchain. Confirm `C:\msys64\ucrt64\bin` is on PATH, then reopen PowerShell.
 
 ### WSL or Ubuntu is not ready
 
-Check WSL and installed distributions:
+Check WSL:
 
 ```powershell
 wsl --status
 wsl -l -q
 ```
 
-Finish Ubuntu's first-run setup if it has not been completed, then run `cbuild install -lnx` again.
+Finish Ubuntu's first-run setup if necessary, then run `cbuild install -lnx` again.
 
-### ARM Linux build reports a missing cross-compiler
+### ARM Linux compiler is missing
 
-Install the matching architecture dependencies:
+Install the matching architecture:
 
 ```powershell
 cbuild install -lnx aarch64
 # or
 cbuild install -lnx armhf
 ```
-
-Then retry the build. The build command checks that the requested cross-compiler is installed.
-
-### Build configuration appears stale
-
-Clean the affected target and rebuild:
-
-```powershell
-cbuild clean -win
-cbuild make -win
-```
-
-Use the corresponding target and architecture flags for other builds. Remember that clean removes the selected target's build and binary directories.
 
 ### Python sprite tools fail
 
@@ -430,6 +453,33 @@ If Pillow is missing:
 python -m pip install pillow
 ```
 
+### Build configuration appears stale
+
+Clean and rebuild the affected target:
+
+```powershell
+cbuild clean -win
+cbuild make -win
+```
+
+Use the corresponding target and architecture flags for other builds.
+
+## macOS support: implementation plan
+
+macOS is **not implemented as a cbuild target yet**. There is an `APPLE` branch in `toolchains/toolchain-desk.cmake`, but the current command dispatcher, dependency installer, build/clean routines, and exporter do not expose a `mac` target.
+
+A proper implementation should add these pieces:
+
+1. **Choose the build host.** A native macOS build requires macOS, Xcode Command Line Tools (Clang, SDK, and Apple frameworks), CMake, and Ninja. A Windows PC cannot produce a supported macOS app simply by using WSL. If you want builds triggered from Windows, cbuild will need to call a remote Mac (for example, a self-hosted Mac runner or CI service).
+2. **Add the `mac` platform to command parsing.** Support `cbuild install -mac`, `make -mac`, `clean -mac`, `export -mac`, and `-mac` in `PLATFORMS`.
+3. **Add native macOS dependency checks.** Verify `xcode-select`, `cmake`, and `ninja`; do not try to install Apple's SDK from Windows.
+4. **Build with the existing CMake Apple branch.** Generate `CMakeLists.txt`, configure a `build/mac` directory on macOS, and build a `.app` bundle into `bin/mac`.
+5. **Fix bundle metadata and resources.** Use a valid reverse-DNS bundle identifier, set version values from project configuration, and ensure icons/resources are copied into the bundle correctly.
+6. **Update clean and export.** Cleaning must remove `build/mac` and `bin/mac`; exporting must copy `.app` directories as bundles rather than filtering only files by extension.
+7. **Test on real macOS.** Test both Apple Silicon (`arm64`) and Intel (`x86_64`) if both are intended, plus SDL2 linking and runtime resource paths.
+
+The first implementation milestone should be a **native macOS build on a Mac**. Once that works, decide whether to add remote builds initiated from Windows. This avoids conflating macOS compilation with Linux cross-compilation.
+
 ## Uninstalling
 
 Run:
@@ -438,9 +488,9 @@ Run:
 cbuild uninstall
 ```
 
-The command asks for confirmation, then removes cbuild, the CEdev calculator toolchain, cbuild-added PATH entries, and the cbuild line from your PowerShell profile.
+The command asks for confirmation, then removes cbuild, CEdev, cbuild-added PATH entries, and the cbuild line from your PowerShell profile.
 
-To also attempt to uninstall MSYS2 and remove the Linux build packages:
+To also attempt to uninstall MSYS2 and remove Linux build packages:
 
 ```powershell
 cbuild uninstall -all
@@ -452,19 +502,23 @@ Skip the confirmation prompt with:
 cbuild uninstall -force
 ```
 
-> **Caution:** `uninstall -all` removes the MSYS2 installation directory and attempts to remove build packages and cross-compilation packages from WSL. Review the confirmation prompt before proceeding. It does not uninstall the WSL distribution itself.
+> **Caution:** `uninstall -all` removes the MSYS2 installation directory and attempts to remove build packages from WSL. It does not uninstall the WSL distribution itself.
 
 ## Building and packaging cbuild itself
 
-The repository keeps the PowerShell implementation in `src` and stores build templates and helper resources alongside it. `package.ps1` combines the source scripts and replaces resource placeholders such as `<requirements.txt>` and `<makefiles/CMakeLists.txt>` with the contents of the referenced files.
+The repository stores its implementation in `src` and keeps templates and helper resources in separate folders. `package.ps1` combines the source scripts and replaces placeholders such as `<requirements.txt>` and `<toolchains/toolchain-desk.cmake>` with their file contents.
 
 From the repository root:
 
 ```powershell
 . .\package.ps1
-complete-cbuild
+Complete-CBuild
 ```
 
-This writes the combined `cbuild.ps1`, reloads it, and invokes `cbuild install -force`.
+To only generate the standalone script:
 
-The generated `cbuild.ps1` is the standalone installer entry point. If you change files under `src`, `makefiles`, `port_shim`, `python`, `requirements.txt`, or `help.txt`, regenerate the script so the packaged copy includes those changes.
+```powershell
+Complete-CBuild -NoInstall
+```
+
+If you change files under `src`, `toolchains`, `desk_shim`, `python`, `requirements.txt`, or `help.txt`, regenerate `cbuild.ps1` so the packaged installer includes those changes.

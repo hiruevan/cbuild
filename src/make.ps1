@@ -59,22 +59,27 @@ function Invoke-cbuildmake() {
         }
         $env:CEDEV = $env:CEDEV.Replace('\', '/')
         $env:Path = "$(Join-Path $env:CEDEV 'bin');$env:Path"
+
         Write-Host ">>> Configuring calculator build..."
         New-CBuildFile (Join-Path $script:CBuildToolchainDir "toolchain-ti84.mk") "Makefile" $cfg
 
-        Write-Host ">>> Building calculator target..."
-        & make
+        try {
+            Write-Host ">>> Building calculator target..."
+            & make
 
-        # Clean up
-        Remove-Item -Path (Join-Path $PWD.Path "Makefile") -Force
-        $launcher = Join-Path $PWD.Path "$($cfg.BIN)/cal/$($cfg.TARGET)"
-        if (Test-Path -LiteralPath $launcher -PathType Leaf) {
-            Move-Item -LiteralPath $launcher -Destination "$launcher.8xp" -Force
+            if ($LASTEXITCODE -ne 0) {
+                throw "Calculator build failed with exit code $LASTEXITCODE."
+            }
         }
-
-        if ($LASTEXITCODE -ne 0) {
-            throw "Calculator build failed with exit code $LASTEXITCODE."
+        finally {
+            # Clean up
+            Remove-Item -Path (Join-Path $PWD.Path "Makefile") -Force -ErrorAction SilentlyContinue
+            $launcher = Join-Path $PWD.Path "$($cfg.BIN)/cal/$($cfg.TARGET)"
+            if (Test-Path -LiteralPath $launcher -PathType Leaf) {
+                Move-Item -LiteralPath $launcher -Destination "$launcher.8xp" -Force
+            }
         }
+        
     }
 
     # Build windows
@@ -83,25 +88,41 @@ function Invoke-cbuildmake() {
         if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
             throw "cmake not found. Run 'cbuild install -win'"
         }
+
         Write-Host "`n>>> Generating Windows resources..."
         Invoke-CBuildResources -Cfg $cfg -OutDir "$($cfg.BUILD)/win"
 
-        Write-Host ">>> Configuring Windows build..."
-        
-        New-CBuildFile (Join-Path $script:CBuildToolchainDir "toolchain-desk.cmake") "CMakeLists.txt" $cfg
         $buildDir = Join-Path (Join-Path $PWD $cfg.BUILD) "win"
 
-        & cmake -S . -B $buildDir -G Ninja `
-            -DCMAKE_BUILD_TYPE=Release
+        try {
+            Write-Host ">>> Configuring Windows build..."
 
-        Write-Host ">>> Building Windows target..."
-        & cmake --build $buildDir
+            New-CBuildFile `
+                (Join-Path $script:CBuildToolchainDir "toolchain-desk.cmake") `
+                "CMakeLists.txt" $cfg
 
-        # Clean up
-        Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force
+            & cmake -S . -B $buildDir -G Ninja `
+                -DCMAKE_BUILD_TYPE=Release
 
-        if ($LASTEXITCODE -ne 0) {
-            throw "Windows build failed with exit code $LASTEXITCODE."
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -ne 0) {
+                throw "Windows configuration failed with exit code $exitCode."
+            }
+
+            Write-Host ">>> Building Windows target..."
+
+            & cmake --build $buildDir
+
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -ne 0) {
+                throw "Windows build failed with exit code $exitCode."
+            }
+        }
+        finally {
+            # Clean up
+            Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force -ErrorAction SilentlyContinue
         }
     }
 

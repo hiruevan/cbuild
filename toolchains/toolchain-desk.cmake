@@ -91,9 +91,9 @@ if(WIN32)
         RUNTIME_OUTPUT_DIRECTORY "${PLATFORM_OUTPUT_DIR}"
     )
 
-    if(EXISTS "${CMAKE_SOURCE_DIR}/resources/icon.ico")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/CRESOURCEDIR/icon.ico")
         file(WRITE "${CMAKE_BINARY_DIR}/app.rc"
-            "IDI_ICON1 ICON \"${CMAKE_SOURCE_DIR}/resources/icon.ico\"\n"
+            "IDI_ICON1 ICON \"${CMAKE_SOURCE_DIR}/CRESOURCEDIR/icon.ico\"\n"
         )
 
         target_sources(${BUILD_NAME} PRIVATE

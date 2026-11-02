@@ -1,4 +1,5 @@
 cbuild - C Build Helper for Calculator and Desktop Platforms
+Version: 1.5.8
 
 Usage:
   cbuild --version
@@ -7,20 +8,61 @@ Usage:
   cbuild uninstall [-all] [-force]
   cbuild make  (-cal | -win | -lnx [architecture ...] | -all)
   cbuild clean (-cal | -win | -lnx [architecture ...] | -all)
+  cbuild export (-cal | -win | -lnx [architecture ...] | -all)
+
+Supported targets:
+  -cal        TI-84 Plus CE calculator (CEdev + GNU Make).
+  -win        Windows desktop (MSYS2 UCRT64 + GCC + CMake + Ninja + SDL2).
+  -lnx        Linux desktop through WSL2 (x86_64 by default).
+  -lnx aarch64
+              Linux ARM64 cross-compilation.
+  -lnx armhf  Linux ARM hard-float cross-compilation.
+
+macOS:
+  macOS is not currently a supported cbuild target.
+  The CMake template has an initial Apple bundle branch, but cbuild does
+  not yet install, build, clean, or export macOS targets.
 
 Commands:
   install     Installs cbuild and selected target dependencies.
   uninstall   Removes cbuild and selected installed dependencies.
-  make        Builds the selected target(s). Run from a project directory
+  make        Builds selected targets. Run from a project directory
               containing Project.mk.
   clean       Removes generated build and binary output directories.
+  export      Copies recognized build outputs into the EXPORT directory.
 
 Install flags:
-  -cal        Installs the TI-84 Plus CE calculator toolchain (CEdev).
+  -cal        Installs the TI-84 Plus CE calculator toolchain.
   -win        Installs Windows desktop build dependencies.
-  -lnx        Installs WSL2/Linux build dependencies (x86_64 by default).
-  -all        Installs calculator, Windows, and default Linux dependencies.
+  -lnx        Installs WSL2/Linux dependencies (x86_64 by default).
+  -all        Installs dependencies selected by PLATFORMS in Project.mk.
   -force      Forces the base cbuild installation to be recreated.
+
+Note: cbuild install -all reads Project.mk from the current directory.
+Run it from a project root. Use cbuild install (without -all) for only
+the base cbuild installation.
+
+Make flags:
+  -cal        Builds the calculator target.
+  -win        Builds the Windows desktop target.
+  -lnx        Builds the selected Linux architecture (x86_64 by default).
+  -all        Builds targets selected by PLATFORMS in Project.mk.
+
+Clean flags:
+  -cal        Removes the calculator build and binary directories.
+  -win        Removes the Windows build and binary directories.
+  -lnx        Removes the selected Linux build and binary directories.
+  -all        Deletes the complete BUILD and BIN directories from Project.mk.
+
+Export flags:
+  -cal        Exports calculator output files.
+  -win        Exports Windows output files.
+  -lnx        Exports selected Linux output files.
+  -all        Exports recognized files from all of BIN.
+
+Export currently recognizes these file extensions:
+  .8xp, .8xv, .exe, .elf
+  macOS .app bundles are not currently supported by export.
 
 Linux architecture arguments (must follow -lnx):
   x86_64      Standard 64-bit Intel/AMD Linux (default).
@@ -34,16 +76,8 @@ Examples:
   cbuild install -lnx
   cbuild install -lnx aarch64
   cbuild install -lnx armhf
-  cbuild install -lnx aarch64 armhf
   cbuild install -all
 
-Make flags:
-  -cal        Builds the calculator target using CEdev and GNU Make.
-  -win        Builds the Windows desktop target using CMake and Ninja.
-  -lnx        Builds Linux through WSL2 (x86_64 by default).
-  -all        Builds calculator, Windows, and default Linux targets.
-
-Examples:
   cbuild make -cal
   cbuild make -win
   cbuild make -lnx
@@ -52,15 +86,6 @@ Examples:
   cbuild make -lnx aarch64 armhf
   cbuild make -all
 
-Clean flags:
-  -cal        Removes the calculator build and binary directories.
-  -win        Removes the Windows build and binary directories.
-  -lnx        Removes the selected Linux architecture's build and binary
-              directories (x86_64 by default).
-  -all        Recursively removes the complete BUILD and BIN directories
-              configured in Project.mk.
-
-Examples:
   cbuild clean -cal
   cbuild clean -win
   cbuild clean -lnx
@@ -68,12 +93,13 @@ Examples:
   cbuild clean -lnx armhf
   cbuild clean -all
 
-Uninstall flags:
-  -all        Also attempts to remove MSYS2 and Linux build packages.
-  -force      Skips the uninstall confirmation prompt.
+  cbuild export -cal
+  cbuild export -win
+  cbuild export -lnx
+  cbuild export -all
 
 Project configuration:
-  cbuild make and cbuild clean read Project.mk from the current directory.
+  make, clean, and export read Project.mk from the current directory.
   NAME is required. Other settings are optional:
 
     NAME        Project name (required)
@@ -81,19 +107,22 @@ Project configuration:
     TARGET      Output target name (defaults to NAME)
     BIN         Binary output directory (defaults to bin)
     BUILD       Build/intermediate directory (defaults to build)
+    EXPORT      Export destination (defaults to export)
     SRCDIR      C source directory (defaults to src)
     INCLUDE     Header directory (defaults to include)
     RESOURCES   Resource directory (defaults to resources)
-    SRC         Source file(s) (defaults to main.c)
+    SRC         Entry-point source file (defaults to main.c)
+    PLATFORMS   Targets used by -all (defaults to cal win lnx)
 
-Linux architecture names are positional arguments after -lnx. They cannot
-be combined with -all. The default Linux architecture is x86_64.
+Valid PLATFORMS values:
+  cal, win, lnx, lnx-x86_64, lnx-aarch64, lnx-armhf
 
 Notes:
-  - Run commands in Windows PowerShell.
+  - Run cbuild commands in Windows PowerShell.
   - Linux builds run through WSL2.
-  - make and clean must be run from the project root containing Project.mk.
+  - make, clean, and export must be run from the project root.
+  - install -all also reads Project.mk and must be run from a project root.
   - clean -all deletes the entire configured BUILD and BIN directories.
     Do not keep unrelated files in those directories.
   - If a build fails due to stale generated files, clean the affected target
-    and try building again.
+    and rebuild it.
