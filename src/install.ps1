@@ -8,6 +8,8 @@ function Install-cbuild() {
         [string[]]$lnxArchs = @("x86_64")
     )
     if ($all) {
+        # Get build config
+        $cfg = Read-CBuildConfig
         if ($cfg.PLATFORMS -contains "cal") {
             $runCal = $true
         }
@@ -106,6 +108,11 @@ function Install-cbuilddir() {
 
     # === Install all the relevant cbuild files ===
     Write-Host ">>> Installing cbuild..."
+    Set-Content `
+        -LiteralPath (Join-Path $installDir "help.txt") `
+        -Value @'
+<help.txt>
+'@
     Set-Content `
         -LiteralPath (Join-Path $installDir "requirements.txt") `
         -Value @'

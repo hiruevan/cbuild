@@ -21,7 +21,7 @@ function Invoke-cbuildclean() {
     }
 
     # Clean all
-    if ($runAll) {
+    if ($all) {
         Write-Host "`n>>> Cleaning all current builds..."
         & $removeFolder $cfg.BUILD
         & $removeFolder $cfg.BIN
@@ -51,7 +51,7 @@ function Invoke-cbuildclean() {
             & $removeFolder "$($cfg.BUILD)/$($entry.Dir)"
             & $removeFolder "$($cfg.BIN)/$($entry.Dir)"
         }
-        if ($runAll) {
+        if ($all) {
             & $removeFolder "$($cfg.BUILD)/lnx"
             & $removeFolder "$($cfg.BIN)/lnx"
         }
