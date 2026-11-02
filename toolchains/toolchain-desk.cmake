@@ -33,9 +33,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PLATFORM_OUTPUT_DIR}")
 find_package(SDL2 REQUIRED)
 
 add_library(ce_shim STATIC
-    port_shim/src/graphx.c
-    port_shim/src/keypadc.c
-    port_shim/src/fileioc.c
+    desk_shim/src/graphx.c
+    desk_shim/src/keypadc.c
+    desk_shim/src/fileioc.c
 )
 
 target_compile_definitions(ce_shim PRIVATE
@@ -44,11 +44,11 @@ target_compile_definitions(ce_shim PRIVATE
 )
 
 target_include_directories(ce_shim PUBLIC
-    port_shim/include
+    desk_shim/include
 )
 
 target_include_directories(ce_shim PRIVATE
-    port_shim/src
+    desk_shim/src
 )
 
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/CINCDIR"
@@ -60,20 +60,20 @@ if(NOT EXISTS "${MAIN_SOURCE}")
     message(FATAL_ERROR "Entry file not found: ${MAIN_SOURCE}")
 endif()
 
-file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS "${SRC_DIR}/*.c")
-list(APPEND GAME_SOURCES "${MAIN_SOURCE}")
-list(REMOVE_DUPLICATES GAME_SOURCES)
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${SRC_DIR}/*.c")
+list(APPEND PROJECT_SOURCES "${MAIN_SOURCE}")
+list(REMOVE_DUPLICATES PROJECT_SOURCES)
 
-if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/icon.ico")
+if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/CRESOURCEDIR/icon.ico")
     enable_language(RC)
 endif()
 
 if(WIN32)
-    add_executable(${BUILD_NAME} WIN32 ${GAME_SOURCES})
+    add_executable(${BUILD_NAME} WIN32 ${PROJECT_SOURCES})
 elseif(APPLE)
-    add_executable(${BUILD_NAME} MACOSX_BUNDLE ${GAME_SOURCES})
+    add_executable(${BUILD_NAME} MACOSX_BUNDLE ${PROJECT_SOURCES})
 else()
-    add_executable(${BUILD_NAME} ${GAME_SOURCES})
+    add_executable(${BUILD_NAME} ${PROJECT_SOURCES})
 endif()
 
 target_link_libraries(${BUILD_NAME} PRIVATE ce_shim)
@@ -81,6 +81,7 @@ target_link_libraries(${BUILD_NAME} PRIVATE ce_shim)
 target_include_directories(${BUILD_NAME} PRIVATE
     "${SRC_DIR}"
     "${INCLUDE_DIR}"
+    "${CMAKE_BINARY_DIR}"
 )
 
 if(WIN32)
@@ -104,7 +105,7 @@ elseif(APPLE)
     set_target_properties(${BUILD_NAME} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_TITLE}"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "org.${BUILD_NAME}.game"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.${BUILD_NAME}.game" # .app?
         MACOSX_BUNDLE_BUNDLE_VERSION "1.0.0"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0.0"
         OUTPUT_NAME "${BUILD_NAME}"

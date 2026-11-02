@@ -1,13 +1,41 @@
 function Install-cbuild() {
     param (
         [bool]$force,
+        [bool]$all,
         [bool]$runCal,
         [bool]$runWin,
         [bool]$runLnx,
         [string[]]$lnxArchs = @("x86_64")
     )
+    if ($all) {
+        if ($cfg.PLATFORMS -contains "cal") {
+            $runCal = $true
+        }
+        if ($cfg.PLATFORMS -contains "win") {
+            $runWin = $true
+        }
+
+        $lnxArchs = @()
+        if ($cfg.PLATFORMS -contains "lnx") {
+            $runLnx = $true
+            $lnxArchs = @("x86_64")
+        }
+        if ($cfg.PLATFORMS -contains "lnx-x86_64") {
+            $runLnx = $true
+            $lnxArchs = @("x86_64")
+        }
+        if ($cfg.PLATFORMS -contains "lnx-aarch64") {
+            $runLnx = $true
+            $lnxArchs += "aarch64"
+        }
+        if ($cfg.PLATFORMS -contains "lnx-armhf") {
+            $runLnx = $true
+            $lnxArchs += "armhf"
+        }
+    }
+
     # Install basic cbuild profile
-    Install-cbuilddir -force $forceRun -runOthers ($runCal -or $runWin -or $runLnx)
+    Install-cbuilddir -force $force -runOthers ($runCal -or $runWin -or $runLnx)
 
     # Install calculator profile
     if ($runCal) {
@@ -24,7 +52,7 @@ function Install-cbuild() {
         Install-cbuildLinux -lnxArchs $lnxArchs
     }
 
-    Write-Host "`ncbuild installed successfully." -ForegroundColor Green
+    Write-Host "cbuild installed successfully." -ForegroundColor Green
 }
 
 function Install-cbuilddir() {
@@ -33,7 +61,7 @@ function Install-cbuilddir() {
         [bool]$runOthers
     )
 
-    Write-Host ">>> Preparing cbuild installation..."
+    Write-Host "`n>>> Preparing cbuild installation..."
     $installDir = Join-Path $HOME "cbuild"
 
     if ((Test-Path -LiteralPath (Join-Path $installDir "requirements.txt")) -and -not $force) {
@@ -67,7 +95,7 @@ function Install-cbuilddir() {
 
     # Install python
     if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-        Write-Host "[Notice] Python is required to use cbuild. `n>>> Installing python..."
+        Write-Host "[Notice] Python is required to use cbuild. >>> Installing python..."
         & winget install Python.Python.3.11 --accept-package-agreements
     }
 
@@ -87,9 +115,9 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
 
-    # --- port_shim ---
+    # --- desk_shim ---
     # directories
-    $shimDir = Join-Path $InstallDir "port_shim"
+    $shimDir = Join-Path $InstallDir "desk_shim"
     New-Item -ItemType Directory `
         -Path $shimDir -Force | Out-Null
     $includeDir = Join-Path $shimDir "include"
@@ -104,25 +132,25 @@ function Install-cbuilddir() {
     Set-Content `
         -LiteralPath (Join-Path $includeDir "fileioc.h") `
         -Value @'
-<port_shim/include/fileioc.h>
+<desk_shim/include/fileioc.h>
 '@ `
         -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $includeDir "graphx.h") `
         -Value @'
-<port_shim/include/graphx.h>
+<desk_shim/include/graphx.h>
 '@ `
         -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $includeDir "keypadc.h") `
         -Value @'
-<port_shim/include/keypadc.h>
+<desk_shim/include/keypadc.h>
 '@ `
         -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $includeDir "tice.h") `
         -Value @'
-<port_shim/include/tice.h>
+<desk_shim/include/tice.h>
 '@ `
         -Encoding utf8
 
@@ -130,57 +158,57 @@ function Install-cbuilddir() {
     Set-Content `
         -LiteralPath (Join-Path $srcDir "ce_internal.h") `
         -Value @'
-<port_shim/src/ce_internal.h>
+<desk_shim/src/ce_internal.h>
 '@ `
         -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $srcDir "fileioc.c") `
         -Value @'
-<port_shim/src/fileioc.c>
+<desk_shim/src/fileioc.c>
 '@ `
         -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $srcDir "graphx.c") `
         -Value @'
-<port_shim/src/graphx.c>
+<desk_shim/src/graphx.c>
 '@ `
         -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $srcDir "keypadc.c") `
         -Value @'
-<port_shim/src/keypadc.c>
+<desk_shim/src/keypadc.c>
 '@ `
         -Encoding utf8
 
-    # --- Makefiles ---
+    # --- Custom Toolchains ---
     # directory
-    $makefileDir = Join-Path $InstallDir "makefiles"
+    $makefileDir = Join-Path $InstallDir "toolchains"
     New-Item -ItemType Directory `
         -Path $makefileDir -Force | Out-Null
 
     # Generate files from the embedded source.
     Set-Content `
-        -LiteralPath (Join-Path $makefileDir "CEMakefile.mk") `
+        -LiteralPath (Join-Path $makefileDir "toolchain-ti84.mk") `
         -Value @'
-<makefiles/CEMakefile.mk>
+<toolchains/toolchain-ti84.mk>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $makefileDir "CMakeLists.txt") `
+        -LiteralPath (Join-Path $makefileDir "toolchain-desk.cmake") `
         -Value @'
-<makefiles/CMakeLists.txt>
+<toolchains/toolchain-desk.cmake>
 '@ `
         -Encoding utf8
             Set-Content `
         -LiteralPath (Join-Path $makefileDir "toolchain-aarch64.cmake") `
         -Value @'
-<makefiles/toolchain-aarch64.cmake>
+<toolchains/toolchain-aarch64.cmake>
 '@ `
         -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $makefileDir "toolchain-armhf.cmake") `
         -Value @'
-<makefiles/toolchain-armhf.cmake>
+<toolchains/toolchain-armhf.cmake>
 '@ `
         -Encoding utf8
 
@@ -221,7 +249,7 @@ function Install-cbuilddir() {
     # Make profile load script
     $cbuildScript = Join-Path $HOME "cbuild\cbuild.ps1"
     . $cbuildScript
-    $profileLine = "`n. `"$cbuildScript`""
+    $profileLine = ". `"$cbuildScript`""
     $profileDir = Split-Path -Parent $PROFILE
     if (-not (Test-Path -LiteralPath $profileDir)) {
         New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
@@ -256,7 +284,7 @@ function Add-CBuildUserPath {
 }
 
 function Install-CBuildCalculator {
-    Write-Host ">>> Installing Calculator dependencies..."
+    Write-Host "`n>>> Installing Calculator dependencies..."
 
 
     $cedev = Join-Path $HOME "CEdev"
@@ -298,7 +326,7 @@ function Install-CBuildCalculator {
 }
 
 function Install-CBuildWindows {
-    Write-Host ">>> Installing Windows dependencies..."
+    Write-Host "`n>>> Installing Windows dependencies..."
 
     $msys = "C:\msys64"
 
@@ -334,7 +362,7 @@ function Install-CBuildLinux {
     param (
         [string[]]$lnxArchs
     )
-    Write-Host ">>> Installing Linux dependencies..."
+    Write-Host "`n>>> Installing Linux dependencies..."
 
     # 1. WSL itself
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
@@ -342,7 +370,7 @@ function Install-CBuildLinux {
     }
 
     # wsl output is UTF-16, so strip NULs before comparing
-    $distros = (& wsl.exe -l -q 2>$null) -join "`n"
+    $distros = (& wsl.exe -l -q 2>$null) -join ""
     $distros = $distros -replace "`0", ""
 
     if ([string]::IsNullOrWhiteSpace($distros)) {
@@ -350,7 +378,7 @@ function Install-CBuildLinux {
         Write-Host "If a wsl terminal opens, enter 'exit' to continue"
         & wsl.exe --install -d Ubuntu-22.04
         & wsl.exe --set-default Ubuntu-22.04
-        Write-Host "`nReboot if prompted, finish the Ubuntu first-run setup,"
+        Write-Host "Reboot if prompted, finish the Ubuntu first-run setup,"
         Write-Host "then run 'cbuild install -lnx' again to install the packages." `
             -ForegroundColor Yellow
         return

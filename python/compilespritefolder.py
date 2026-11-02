@@ -1,5 +1,8 @@
-﻿import sys
-import os
+﻿import sys, os, re
+
+def c_name(s):
+    s = re.sub(r'[^0-9a-zA-Z_]', '_', s)
+    return '_' + s if s[0].isdigit() else s
 
 def parse_sprite(path):
     with open(path, "r") as f:
@@ -44,39 +47,46 @@ def write_header(sprites, h_path):
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python compilespritefolder.py sprite_folder output.h")
+        print("Usage: python compilespritefolder.py sprite_folder output.h [prefix]")
         sys.exit(1)
 
     sprite_dir = sys.argv[1]
     output = sys.argv[2]
+    prefix = sys.argv[3] if len(sys.argv) > 3 else ""
 
-    # Create output directory if one was specified
     output_dir = os.path.dirname(output)
-
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
     sprites = {}
-
-    for file in os.listdir(sprite_dir):
+    for file in sorted(os.listdir(sprite_dir)):      # sorted = deterministic output
         if not file.endswith(".sprite"):
             continue
-
-        name = os.path.splitext(file)[0]
-        path = os.path.join(sprite_dir, file)
-
-        sprite, w, h = parse_sprite(path)
+        stem = os.path.splitext(file)[0]
+        name = c_name(f"{prefix}_{stem}" if prefix else stem)
+        sprite, w, h = parse_sprite(os.path.join(sprite_dir, file))
         sprites[name] = (sprite, w, h)
-
         print(f"Loaded {name} ({w}x{h})")
 
     if not sprites:
         print("No .sprite files found.")
         sys.exit(1)
 
-    write_header(sprites, output)
+    # Only replace the header if its contents changed (avoids needless rebuilds)
+    tmp = output + ".tmp"
+    write_header(sprites, tmp)
+    with open(tmp) as f:
+        new = f.read()
+    old = None
+    if os.path.exists(output):
+        with open(output) as f:
+            old = f.read()
+    if new != old:
+        os.replace(tmp, output)
+    else:
+        os.remove(tmp)
 
-    print(f"\nGenerated {output} with {len(sprites)} sprites (header-only)")
+    print(f"Generated {output} with {len(sprites)} sprites")
 
 if __name__ == "__main__":
     main()

@@ -25,7 +25,7 @@ function Invoke-cbuildclean() {
         Write-Host "`n>>> Cleaning all current builds..."
         & $removeFolder $cfg.BUILD
         & $removeFolder $cfg.BIN
-        Write-Host "`All directories cleaned successfully." -ForegroundColor Green
+        Write-Host "All directories cleaned successfully." -ForegroundColor Green
         return
     }
 
@@ -57,5 +57,5 @@ function Invoke-cbuildclean() {
         }
     }
 
-    Write-Host "`Cleaning jobs completed successfully." -ForegroundColor Green
+    Write-Host "Cleaning jobs completed successfully." -ForegroundColor Green
 }

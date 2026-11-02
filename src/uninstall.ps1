@@ -65,7 +65,7 @@ function Uninstall-cbuild {
     # Finally remove cbuild completely
     Remove-CBuildDirectory $script:CBuildInstallDir
 
-    Write-Host "`ncbuild uninstalled. Restart your terminal to finish." -ForegroundColor Blue
+    Write-Host "cbuild uninstalled. Restart your terminal to finish." -ForegroundColor Blue
 }
 
 function Remove-CBuildUserPath {

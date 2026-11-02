@@ -3,7 +3,7 @@
 CBUILD
     - makefiles
     # - calc_shim
-    - port_shim
+    - desk_shim
     - python
 
 PYTHON

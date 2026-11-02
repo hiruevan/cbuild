@@ -17,9 +17,39 @@ function Invoke-cbuildmake() {
     # Get build config
     $cfg = Read-CBuildConfig
 
+    if ($all) {
+        if ($cfg.PLATFORMS -contains "cal") {
+            $runCal = $true
+        }
+        if ($cfg.PLATFORMS -contains "win") {
+            $runWin = $true
+        }
+
+        $lnxArchs = @()
+        if ($cfg.PLATFORMS -contains "lnx") {
+            $runLnx = $true
+            $lnxArchs = @("x86_64")
+        }
+        if ($cfg.PLATFORMS -contains "lnx-x86_64") {
+            $runLnx = $true
+            $lnxArchs = @("x86_64")
+        }
+        if ($cfg.PLATFORMS -contains "lnx-aarch64") {
+            $runLnx = $true
+            $lnxArchs += "aarch64"
+        }
+        if ($cfg.PLATFORMS -contains "lnx-armhf") {
+            $runLnx = $true
+            $lnxArchs += "armhf"
+        }
+    }
+
     # Build calculator
     if ($runCal) {
-        Write-Host "`n>>> Preparing Calculator toolchain..."
+        Write-Host "`n>>> Generating calculator resources..."
+        Invoke-CBuildResources -Cfg $cfg -OutDir "$($cfg.BUILD)/cal"
+
+        Write-Host ">>> Preparing Calculator toolchain..."
         if (-not $env:CEDEV) {
             $env:CEDEV = [Environment]::GetEnvironmentVariable("CEDEV", "User")
         }
@@ -30,13 +60,17 @@ function Invoke-cbuildmake() {
         $env:CEDEV = $env:CEDEV.Replace('\', '/')
         $env:Path = "$(Join-Path $env:CEDEV 'bin');$env:Path"
         Write-Host ">>> Configuring calculator build..."
-        New-CBuildFile (Join-Path $script:CBuildMakefileDir "CEMakefile.mk") "Makefile" $cfg
+        New-CBuildFile (Join-Path $script:CBuildToolchainDir "toolchain-ti84.mk") "Makefile" $cfg
 
         Write-Host ">>> Building calculator target..."
         & make
 
         # Clean up
         Remove-Item -Path (Join-Path $PWD.Path "Makefile") -Force
+        $launcher = Join-Path $PWD.Path "$($cfg.BIN)/cal/$($cfg.TARGET)"
+        if (Test-Path -LiteralPath $launcher -PathType Leaf) {
+            Move-Item -LiteralPath $launcher -Destination "$launcher.8xp" -Force
+        }
 
         if ($LASTEXITCODE -ne 0) {
             throw "Calculator build failed with exit code $LASTEXITCODE."
@@ -45,9 +79,12 @@ function Invoke-cbuildmake() {
 
     # Build windows
     if ($runWin) {
-        Write-Host "`n>>> Configuring Windows build..."
+        Write-Host "`n>>> Generating Windows resources..."
+        Invoke-CBuildResources -Cfg $cfg -OutDir "$($cfg.BUILD)/win"
+
+        Write-Host ">>> Configuring Windows build..."
         
-        New-CBuildFile (Join-Path $script:CBuildMakefileDir "CMakeLists.txt") "CMakeLists.txt" $cfg
+        New-CBuildFile (Join-Path $script:CBuildToolchainDir "toolchain-desk.cmake") "CMakeLists.txt" $cfg
         $buildDir = Join-Path (Join-Path $PWD $cfg.BUILD) "win"
 
         & cmake -S . -B $buildDir -G Ninja `
@@ -66,16 +103,19 @@ function Invoke-cbuildmake() {
 
     # Build linux
     if ($runLnx) {
-        $winShim   = Join-Path $HOME "cbuild/port_shim"
+        $winShim   = Join-Path $HOME "cbuild/desk_shim"
         $linuxShim = (& wsl.exe wslpath -a ($winShim.Replace('\', '/'))).Trim()
 
         # The template is identical for every architecture, so generate it once
-        New-CBuildFile (Join-Path $script:CBuildMakefileDir "CMakeLists.txt") "CMakeLists.txt" $cfg -Shim $linuxShim
+        New-CBuildFile (Join-Path $script:CBuildToolchainDir "toolchain-desk.cmake") "CMakeLists.txt" $cfg -Shim $linuxShim
 
         try {
             foreach ($arch in $lnxArchs) {
                 $entry    = $script:CBuildLinuxArchs[$arch]
                 $buildDir = "$($cfg.BUILD)/$($entry.Dir)"
+
+                Write-Host "`n>>> Generating Linux ($arch) resources..."
+                Invoke-CBuildResources -Cfg $cfg -OutDir $buildDir
 
                 if ($entry.Toolchain) {
                     & wsl.exe dpkg -s $entry.Compiler 2>&1 | Out-Null
@@ -84,14 +124,14 @@ function Invoke-cbuildmake() {
                     }
                 }
 
-                Write-Host "`n>>> Configuring Linux ($arch) build..."
+                Write-Host ">>> Configuring Linux ($arch) build..."
                 $cmakeArgs = @(
                     "-S", ".", "-B", $buildDir, "-G", "Ninja",
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DCBUILD_LNX_DIR=$($entry.Dir)"
                 )
                 if ($entry.Toolchain) {
-                    $tcWin   = Join-Path $script:CBuildMakefileDir $entry.Toolchain
+                    $tcWin   = Join-Path $script:CBuildToolchainDir $entry.Toolchain
                     $tcLinux = (& wsl.exe wslpath -a ($tcWin.Replace('\', '/'))).Trim()
                     $cmakeArgs += "-DCMAKE_TOOLCHAIN_FILE=$tcLinux"
                 }
@@ -109,5 +149,5 @@ function Invoke-cbuildmake() {
         }
     }
 
-    Write-Host "`All build jobs completed successfully." -ForegroundColor Green
+    Write-Host "All build jobs completed successfully." -ForegroundColor Green
 }

@@ -1,5 +1,4 @@
 cbuild - C Build Helper for Calculator and Desktop Platforms
-Version: 1.2.14
 
 Usage:
   cbuild --version

@@ -5,7 +5,7 @@ TARGET = CTAR
 SRCDIR = CSRCDIR
 SRCS = CSRCFILES
 
-CFLAGS = -Wall -Wextra -O2 -ICINCDIR
+CFLAGS = -Wall -Wextra -O2 -ICINCDIR -ICBUILDDIR/cal
 LIBS = graphx keypadc fileioc tice
 
 BINDIR = CBINDIR/cal

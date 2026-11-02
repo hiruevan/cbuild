@@ -1,16 +1,16 @@
 $script:CBuildInstallDir = Join-Path $HOME "cbuild"
-$script:CBuildPortShimDir = Join-Path $script:CBuildInstallDir "port_shim"
-$script:CBuildCalcShimDir = Join-Path $script:CBuildInstallDir "calc_shim"
-$script:CBuildMakefileDir = Join-Path $script:CBuildInstallDir "makefiles"
+$script:CBuildToolchainDir = Join-Path $script:CBuildInstallDir "toolchains"
 $script:CBuildHelperDir = Join-Path $HOME "python"
 
-$script:CbiuldVersion = "1.2.14"
+$script:CbiuldVersion = "1.3.23"
 
 function cbuild {
     $cbuildArgs = @($args | ForEach-Object { [string]$_ })
 
     # Version
-    if ($cbuildArgs -contains "--version" -or $cbuildArgs.Count -eq 0) {
+    if ($cbuildArgs -contains "--version" -or 
+        $cbuildArgs -contains "-version" -or
+        $cbuildArgs.Count -eq 0) {
         Write-Output "cbuild version " $Script:CbiuldVersion
         return
     }
@@ -25,6 +25,8 @@ function cbuild {
         return
     }
 
+    <helper_definitions>
+
     # Install flag
     $requirementsDir = Join-Path $script:CBuildInstallDir "requirements.txt"
     $isInstalled = Test-Path -Path $requirementsDir
@@ -37,9 +39,9 @@ function cbuild {
     # Determine targets
     $forceRun = $flags -contains "-force"
     $runAll = $flags -contains "-all"
-    $runCal = $flags -contains "-cal" -or $runAll
-    $runWin = $flags -contains "-win" -or $runAll
-    $runLnx = $flags -contains "-lnx" -or $runAll
+    $runCal = $flags -contains "-cal"
+    $runWin = $flags -contains "-win"
+    $runLnx = $flags -contains "-lnx"
 
     # Get Linux archs
     $lnxArchs = @("x86_64")
@@ -59,7 +61,7 @@ function cbuild {
 
     # === INSTALL command ===
     if ($action -eq "install") {
-        Install-cbuild -force $forceRun -runCal $runCal -runWin $runWin -runLnx $runLnx -lnxArchs $lnxArchs
+        Install-cbuild -force $forceRun -all $runAll -runCal $runCal -runWin $runWin -runLnx $runLnx -lnxArchs $lnxArchs
         return
     }
 
@@ -69,7 +71,7 @@ function cbuild {
     }
 
     # Validate command
-    if ($action -notin @("clean", "make", "install", "uninstall")) {
+    if ($action -notin @("clean", "make", "export", "install", "uninstall")) {
         Write-Error "Unknown command '$action'. Run 'cbuild -help'."
         return
     }
@@ -80,6 +82,7 @@ function cbuild {
         "uninstall" { @("-all", "-force") }
         "clean"   { @("-win", "-cal", "-lnx", "-all") }
         "make"    { @("-win", "-cal", "-lnx", "-all") }
+        "export"  { @("-win", "-cal", "-lnx", "-all") }
     }
 
     foreach ($flag in $flags) {
@@ -107,5 +110,10 @@ function cbuild {
     # === MAKE command ===
     if ($action -eq "make") {
         Invoke-cbuildmake -all $runAll -runCal $runCal -runWin $runWin -runLnx $runLnx -lnxArchs $lnxArchs
+    }
+
+    # === EXPORT command ===
+    if ($action -eq "export") {
+        Invoke-cbuildexport -all $runAll -runCal $runCal -runWin $runWin -runLnx $runLnx -lnxArchs $lnxArchs
     }
 }
