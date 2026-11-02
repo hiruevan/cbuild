@@ -4,7 +4,7 @@ function Complete-CBuild {
 
     $base     = (Get-Location).ProviderPath
     $root     = Join-Path $base 'src'
-    $outFull  = Join-Path $base 'cbuild.ps1'
+    $outFull  = Join-Path $HOME 'cbuild.ps1'
     $mainPath = Join-Path $root 'module.ps1'
 
     if (-not (Test-Path -LiteralPath $mainPath -PathType Leaf)) {
