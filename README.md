@@ -77,17 +77,13 @@ The installed files are placed under your home directory:
 
 ```text
 $HOME\
-├── cbuild\
-│   ├── cbuild.ps1
-│   ├── help.txt
-│   ├── requirements.txt
-│   ├── desk_shim\
-│   └── toolchains\
-└── python\
-    ├── compilespritefolder.py
-    ├── createspritefolder.py
-    ├── generatetileset.py
-    └── spritetopngfolder.py
+└── cbuild\
+    ├── cbuild.ps1
+    ├── help.txt
+    ├── requirements.txt
+    ├── desk_shim\
+    ├──python\
+    └── toolchains\
 ```
 
 The installer also installs Pillow, registers the cbuild script in your PowerShell profile, and makes the `cbuild` function available in new PowerShell sessions.
