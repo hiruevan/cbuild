@@ -24,11 +24,9 @@ LINUX
     - WSL2
     - Ubuntu
     - SDL2
-    x86-64
-        - GCC
-        - CMake
-        - Ninja
-    aarch64
-        - AArch64 cross-compiler
-    armhf
-        - ARM hard-float cross-compiler
+    - GCC
+    - CMake
+    - Ninja
+    - x86_64
+    - aarch64
+    - armhf

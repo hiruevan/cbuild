@@ -64,16 +64,51 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${SRC_DIR}/*.c")
 list(APPEND PROJECT_SOURCES "${MAIN_SOURCE}")
 list(REMOVE_DUPLICATES PROJECT_SOURCES)
 
-if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/CRESOURCEDIR/icon.ico")
+if(WIN32)
+    set(BUILD_DIR "${CMAKE_SOURCE_DIR}/CBUILDDIR/win")
+
+elseif(APPLE)
+    set(BUILD_DIR "${CMAKE_SOURCE_DIR}/CBUILDDIR/mac")
+
+else()
+    set(BUILD_DIR "${CMAKE_SOURCE_DIR}/CBUILDDIR/${CBUILD_LNX_DIR}")
+endif()
+
+set(INPUT_SOURCE "${BUILD_DIR}/input.c")
+set(INPUT_HEADER "${BUILD_DIR}/input.h")
+
+if(NOT EXISTS "${INPUT_SOURCE}")
+    message(FATAL_ERROR
+        "Generated input source not found: ${INPUT_SOURCE}"
+    )
+endif()
+
+if(NOT EXISTS "${INPUT_HEADER}")
+    message(FATAL_ERROR
+        "Generated input header not found: ${INPUT_HEADER}"
+    )
+endif()
+
+
+if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/CRESOURCEDIR/CICON")
     enable_language(RC)
 endif()
 
 if(WIN32)
-    add_executable(${BUILD_NAME} WIN32 ${PROJECT_SOURCES})
+    add_executable(${BUILD_NAME} WIN32
+        ${PROJECT_SOURCES}
+        "${INPUT_SOURCE}"
+    )
 elseif(APPLE)
-    add_executable(${BUILD_NAME} MACOSX_BUNDLE ${PROJECT_SOURCES})
+    add_executable(${BUILD_NAME} MACOSX_BUNDLE
+        ${PROJECT_SOURCES}
+        "${INPUT_SOURCE}"
+    )
 else()
-    add_executable(${BUILD_NAME} ${PROJECT_SOURCES})
+    add_executable(${BUILD_NAME}
+        ${PROJECT_SOURCES}
+        "${INPUT_SOURCE}"
+    )
 endif()
 
 target_link_libraries(${BUILD_NAME} PRIVATE ce_shim)
@@ -81,6 +116,7 @@ target_link_libraries(${BUILD_NAME} PRIVATE ce_shim)
 target_include_directories(${BUILD_NAME} PRIVATE
     "${SRC_DIR}"
     "${INCLUDE_DIR}"
+    "${BUILD_DIR}"
     "${CMAKE_BINARY_DIR}"
 )
 
@@ -91,9 +127,9 @@ if(WIN32)
         RUNTIME_OUTPUT_DIRECTORY "${PLATFORM_OUTPUT_DIR}"
     )
 
-    if(EXISTS "${CMAKE_SOURCE_DIR}/CRESOURCEDIR/icon.ico")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/CRESOURCEDIR/CICON")
         file(WRITE "${CMAKE_BINARY_DIR}/app.rc"
-            "IDI_ICON1 ICON \"${CMAKE_SOURCE_DIR}/CRESOURCEDIR/icon.ico\"\n"
+            "IDI_ICON1 ICON \"${CMAKE_SOURCE_DIR}/CRESOURCEDIR/CICON\"\n"
         )
 
         target_sources(${BUILD_NAME} PRIVATE

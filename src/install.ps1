@@ -231,6 +231,12 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
     Set-Content `
+        -LiteralPath (Join-Path $helperDir "generateinputs.py") `
+        -Value @'
+<python/generateinputs.py>
+'@ `
+        -Encoding utf8
+    Set-Content `
         -LiteralPath (Join-Path $helperDir "createspritefolder.py") `
         -Value @'
 <python/createspritefolder.py>

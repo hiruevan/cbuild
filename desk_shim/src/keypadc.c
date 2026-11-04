@@ -8,7 +8,7 @@
 volatile uint16_t kb_Data[8];
 
 /*
- * Desktop key bindings (calculator key -> keyboard key):
+ * Default Desktop key bindings (calculator key -> keyboard key):
  *   D-pad   = Arrow keys        2nd   = Z        Alpha = X
  *   Clear   = C                 Mode  = Esc      Del   = Backspace
  *   Enter   = Return            Graph/Trace/Zoom/Window/Y= = F5/F4/F3/F2/F1

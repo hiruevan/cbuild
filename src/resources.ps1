@@ -6,7 +6,8 @@ function Invoke-CBuildResources {
 
     $platDir  = Join-Path $PWD.Path $OutDir
     $genDir   = Join-Path $platDir "resources"
-    $compiler = Join-Path $script:CBuildInstallDir "python\compilespritefolder.py"
+    $spriteCompiler = Join-Path $script:CBuildInstallDir "python\compilespritefolder.py"
+    $inputCompiler = Join-Path $script:CBuildInstallDir "python\generateinputs.py"
     New-Item -ItemType Directory -Path $genDir -Force | Out-Null
 
     $headers = @()
@@ -23,6 +24,27 @@ function Invoke-CBuildResources {
         
         $resRoot = (Resolve-Path -LiteralPath $resPath).ProviderPath.TrimEnd('\')
 
+        # === inputs.h generation ===
+        if ($cfg.KEYBINDS) {
+            $keybindPath = Join-Path $resRoot $Cfg.KEYBINDS
+
+            if (-not (Test-Path -LiteralPath $keybindPath -PathType Leaf)) {
+                throw "Keybind configuration not found: $keybindPath"
+            }
+
+            $platform = Split-Path $OutDir -Leaf
+
+            Write-Host "    inputs: $platform (input.h, input.c)"
+
+            & $python.Path @($python.Args) $inputCompiler $keybindPath $platdir $platform
+
+            if ($LASTEXITCODE -ne 0) {
+                throw "Input generation failed for platform '$platform'."
+            }
+        }
+
+        # === resources.h generation ===
+
         # --- .sprite files ---
         $groups = Get-ChildItem -LiteralPath $resRoot -Recurse -File -Filter *.sprite |
             Group-Object DirectoryName | Sort-Object Name
@@ -32,8 +54,8 @@ function Invoke-CBuildResources {
             $prefix = $rel -replace '[\\/]+', '_'
             $hdr    = if ($prefix) { "res_$prefix.h" } else { "res_root.h" }
 
-            Write-Host "    sprites: $(if ($rel) { $rel } else { '(root)' })"
-            & $python.Path @($python.Args) $compiler `
+            Write-Host "    sprites: $(if ($rel) { $rel } else { '(root)' }) ($($hdr))"
+            & $python.Path @($python.Args) $spriteCompiler `
                 $g.Name `
                 (Join-Path $genDir $hdr) `
                 $prefix | Out-Null
@@ -52,6 +74,7 @@ function Invoke-CBuildResources {
              ($headers | ForEach-Object { "#include `"resources/$_`"" })
     $text = ($lines -join "`n") + "`n"
     $dest = Join-Path $platDir "resources.h"
+    
     if (-not (Test-Path -LiteralPath $dest) -or
         (Get-Content -LiteralPath $dest -Raw) -ne $text) {
         [System.IO.File]::WriteAllText($dest, $text, (New-Object System.Text.UTF8Encoding $false))
