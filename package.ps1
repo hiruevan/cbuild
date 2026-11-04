@@ -2,6 +2,36 @@ function Complete-CBuild {
     [CmdletBinding()]
     param([switch]$NoInstall)
 
+    function ReplaceVersion() {
+        param (
+            [Parameter(Mandatory = $true)]
+            [string]$File,
+
+            [Parameter(Mandatory = $true)]
+            [string]$Replacement
+        )
+
+        if (!(Test-Path $File -PathType Leaf)) {
+            Write-Error "File not found: $File"
+            exit 1
+        }
+
+        # Read the file contents
+        $Content = Get-Content $File -Raw
+
+        # Match semantic versions (x.y.z)
+        $Pattern = '\b\d+\.\d+\.\d+\b'
+
+        # Replace all matches
+        $UpdatedContent = $Content -replace $Pattern, $Replacement
+
+        # Write the updated contents
+        Set-Content -Path $File -Value $UpdatedContent -NoNewline
+
+        Write-Host "Successfully replaced all versions in $File" -ForegroundColor Green
+    }
+
+
     $base     = (Get-Location).ProviderPath
     $root     = Join-Path $base 'src'
     $outFull  = Join-Path $HOME 'cbuild.ps1'
@@ -62,6 +92,9 @@ function Complete-CBuild {
                       $g[1].Value + $newVer + $g[5].Value +
                       $mainText.Substring($verMatch.Index + $verMatch.Length)
         $mainText = $bumpedMain
+
+        # Bump README.md too
+        ReplaceVersion -File "README.md" -Replacement $newVer
     } else {
         Write-Warning 'Could not find $script:CBuildVersion = "x.y.z" in module.ps1; version not bumped.'
     }
