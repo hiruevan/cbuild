@@ -1,11 +1,17 @@
 
-import os
 import re
 import sys
 
+from generationhelper import *
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable
+
+from generationhelper import *
+
 
 # --------------------------------------------------
-# Configuration parser
+# Platform configuration
 # --------------------------------------------------
 
 PLATFORMS = {
@@ -27,14 +33,99 @@ VALID_BLOCKS = {
     "MOBILE",
 }
 
-def fail(message, line=None):
-    location = f"Line {line}: " if line else ""
-    raise ValueError(location + message)
 
+# --------------------------------------------------
+# Gamepad support (SDL2 GameController API)
+# --------------------------------------------------
+
+PAD_BUTTONS = {
+    "A": "A", "B": "B", "X": "X", "Y": "Y",
+    "Plus": "START", "Start": "START",
+    "Minus": "BACK", "Back": "BACK", "Select": "BACK",
+    "Home": "GUIDE",
+    "Up": "DPAD_UP", "Down": "DPAD_DOWN",
+    "Left": "DPAD_LEFT", "Right": "DPAD_RIGHT",
+    "L": "LEFTSHOULDER", "R": "RIGHTSHOULDER",
+    "L_Stick": "LEFTSTICK", "R_Stick": "RIGHTSTICK",
+}
+
+PAD_TRIGGERS = {
+    "ZL": "SDL_CONTROLLER_AXIS_TRIGGERLEFT",
+    "ZR": "SDL_CONTROLLER_AXIS_TRIGGERRIGHT",
+}
+
+# Sign applied to the raw SDL axis value. SDL's Y axis grows downward,
+# so "Pos_Y" (up) is the negative direction of the raw axis.
+PAD_AXIS_SIGN = {
+    ("Pos", "X"): "+1",
+    ("Neg", "X"): "-1",
+    ("Pos", "Y"): "-1",
+    ("Neg", "Y"): "+1",
+}
+
+GAMEPAD_HELPERS = load_file("../templates/gamepad.c")
+
+# --------------------------------------------------
+# Backend definitions
+# --------------------------------------------------
+
+ANY_KEY = "AnyKey"
+
+@dataclass(frozen=True)
+class Backend:
+    block: str
+    includes: str
+    scan_prologue: str
+    key_to_expr: Callable[[str], str]
+    helpers: str = ""
+    prompt: str = ""
+    any_expr: str = ""
+
+PROMPT_COMMON = load_file("../templates/prompt_common.c")
+
+BACKENDS = {
+    "CALCULATOR": Backend(
+        block="CALCULATOR",
+        includes="#include <keypadc.h>",
+        scan_prologue="    kb_Scan();",
+        key_to_expr=lambda b: f"kb_IsDown({calculator_key(b)})",
+        prompt=load_file("../templates/prompt_calculator.c"),
+        any_expr="kb_AnyKey()"
+    ),
+
+    "KEYBOARD": Backend(
+        block="KEYBOARD",
+        includes='#include <SDL.h>\n#include "keypadc.h"',
+        scan_prologue=(
+            "    kb_Scan();\n"
+            "    const Uint8 *keyboard = SDL_GetKeyboardState(NULL);"
+        ),
+        key_to_expr=lambda b: f"keyboard[{keyboard_key(b)}]",
+        prompt=load_file("../templates/prompt_keyboard.c"),
+        any_expr="_keyboard_any()"
+    ),
+    "GAMEPAD": Backend(
+        block="GAMEPAD",
+        includes="#include <SDL.h>\n#include <stdbool.h>",
+        helpers=GAMEPAD_HELPERS,
+        scan_prologue=(
+            "    _pad_refresh();\n"
+            "    SDL_GameControllerUpdate();"
+        ),
+        key_to_expr=lambda b: gamepad_key(b),
+        prompt=load_file("../templates/prompt_gamepad.c"),
+        any_expr="_pad_any()"
+    ),
+}
+
+
+# --------------------------------------------------
+# Configuration parser
+# --------------------------------------------------
 
 def parse_config(path):
-    with open(path, "r", encoding="utf-8-sig") as f:
-        lines = f.readlines()
+    with open(path, "r", encoding="utf-8-sig") as file:
+        lines = file.readlines()
 
     definitions = []
     blocks = {}
@@ -51,7 +142,10 @@ def parse_config(path):
         # Action declaration
         if line.startswith("DEF "):
             if current_block:
-                fail("DEF declarations must appear outside blocks.", number)
+                fail(
+                    "DEF declarations must appear outside blocks.",
+                    number,
+                )
 
             action = line[4:].strip()
 
@@ -60,6 +154,9 @@ def parse_config(path):
 
             if action in definitions:
                 fail(f"Duplicate action '{action}'.", number)
+
+            if action == ANY_KEY:
+                fail(f"'{ANY_KEY}' is reserved.", number)
 
             definitions.append(action)
             continue
@@ -82,6 +179,7 @@ def parse_config(path):
             current_action = None
             continue
 
+        # Block closing
         if line == "}":
             if not current_block:
                 fail("Unexpected closing brace.", number)
@@ -93,14 +191,14 @@ def parse_config(path):
         if not current_block:
             fail("Unexpected content outside a platform block.", number)
 
-        # Optional action properties
+        # Action properties
         if line.startswith("."):
             if not current_action:
                 fail("Property has no preceding action.", number)
 
             match = re.fullmatch(
                 r"\.(name|pos)\s*=\s*(.+)",
-                line
+                line,
             )
 
             if not match:
@@ -126,7 +224,7 @@ def parse_config(path):
                 match = re.fullmatch(
                     r"([+-]?\d+(?:\.\d+)?)\s*,\s*"
                     r"([+-]?\d+(?:\.\d+)?)",
-                    value
+                    value,
                 )
 
                 if not match:
@@ -135,7 +233,10 @@ def parse_config(path):
                 x, y = map(float, match.groups())
 
                 if not (0 <= x <= 1 and 0 <= y <= 1):
-                    fail(".pos coordinates must be between 0 and 1.", number)
+                    fail(
+                        ".pos coordinates must be between 0 and 1.",
+                        number,
+                    )
 
                 action["pos"] = (x, y)
 
@@ -144,7 +245,7 @@ def parse_config(path):
         # Action assignment
         match = re.fullmatch(
             r"([A-Za-z_]\w*)\s*=\s*(.+)",
-            line
+            line,
         )
 
         if not match:
@@ -153,7 +254,10 @@ def parse_config(path):
         action_name, raw_bindings = match.groups()
 
         if action_name in blocks[current_block]:
-            fail(f"Duplicate assignment for '{action_name}'.", number)
+            fail(
+                f"Duplicate assignment for '{action_name}'.",
+                number,
+            )
 
         bindings = [
             item.strip()
@@ -164,7 +268,10 @@ def parse_config(path):
             fail("Invalid empty binding.", number)
 
         if "NONE" in bindings and len(bindings) != 1:
-            fail("NONE cannot be combined with other bindings.", number)
+            fail(
+                "NONE cannot be combined with other bindings.",
+                number,
+            )
 
         blocks[current_block][action_name] = {
             "bindings": bindings
@@ -172,6 +279,7 @@ def parse_config(path):
 
         current_action = action_name
 
+    # Validate block closure
     if current_block:
         fail(f"Unclosed {current_block} block.")
 
@@ -180,6 +288,7 @@ def parse_config(path):
 
     # Validate every block against global definitions
     for block_name, actions in blocks.items():
+
         for action in actions:
             if action not in definitions:
                 fail(
@@ -197,34 +306,8 @@ def parse_config(path):
     return definitions, blocks
 
 
-# --- Placeholder Backend ---
-def generate_placeholder(output_dir):
-    lines = [
-        "// Generated by cbuild. Do not edit.",
-        "// Placeholder input.h file ([ERROR] platform not implemented)",
-        ]
-
-    os.makedirs(output_dir or ".", exist_ok=True)
-    
-    outputs = {
-            os.path.join(output_dir, "input.h"): "\n".join(lines)
-    }
-    
-    for path, content in outputs.items():
-            if not os.path.exists(path):
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
-            else:
-                with open(path, "r", encoding="utf-8") as f:
-                    old = f.read()
-    
-                if old != content:
-                    with open(path, "w", encoding="utf-8") as f:
-                        f.write(content)
-
-
 # --------------------------------------------------
-# Calculator backend
+# Key mapping
 # --------------------------------------------------
 
 def calculator_key(binding):
@@ -236,7 +319,6 @@ def calculator_key(binding):
 
     key = binding[4:]
 
-    # Match the names in keypadc.h
     special = {
         "2nd": "2nd",
         "Alpha": "Alpha",
@@ -248,161 +330,15 @@ def calculator_key(binding):
     return "kb_Key" + key
 
 
-def c_string(value):
-    return (
-        '"'
-        + value.replace("\\", "\\\\")
-                .replace('"', '\\"')
-                .replace("\n", "\\n")
-        + '"'
-    )
-
-
-def generate_calculator(definitions, blocks, output_dir):
-    if "CALCULATOR" not in blocks:
-        fail("Missing CALCULATOR block.")
-
-    actions = blocks["CALCULATOR"]
-
-    header_lines = [
-        "// Generated by cbuild. Do not edit.",
-        "#pragma once",
-        "",
-        "#include <stdint.h>",
-        "#include <stdbool.h>",
-        "",
-        "typedef struct {",
-        "    uint8_t id;",
-        "    const char *name;",
-        "} InputAction;",
-        "",
-        "typedef struct {",
-    ]
-
-    for action in definitions:
-        header_lines.append(f"    InputAction {action};")
-
-    header_lines += [
-        "} InputBindings;",
-        "",
-        "extern const InputBindings INPUT;",
-        "",
-        f"#define INPUT_ACTION_COUNT {len(definitions)}",
-        "",
-        "void Input_Scan(void);",
-        "bool KeyDown(InputAction action);",
-        "bool KeyJustPressed(InputAction action);",
-        "",
-    ]
-
-    # === Generate input.c ===
-
-    source_lines = [
-        "// Generated by cbuild. Do not edit.",
-        "",
-        '#include "input.h"',
-        "#include <keypadc.h>",
-        "",
-        "const InputBindings INPUT = {",
-    ]
-
-    for index, action in enumerate(definitions):
-        data = actions[action]
-        bindings = data["bindings"]
-
-        name = data.get("name")
-
-        if not name:
-            name = (
-                bindings[0].replace("Key_", "")
-                if bindings[0] != "NONE"
-                else action
-            )
-
-        source_lines.append(
-            f"    .{action} = {{{index}, {c_string(name)}}},"
-        )
-
-    source_lines += [
-        "};",
-        "",
-        "static bool _input_down[INPUT_ACTION_COUNT] = {0};",
-        "static bool _input_pressed[INPUT_ACTION_COUNT] = {0};",
-        "",
-        "void Input_Scan(void) {",
-        "    kb_Scan();",
-    ]
-
-    for index, action in enumerate(definitions):
-        bindings = actions[action]["bindings"]
-
-        tests = []
-
-        if bindings != ["NONE"]:
-            for binding in bindings:
-                key = calculator_key(binding)
-                tests.append(f"kb_IsDown({key})")
-
-        expression = " || ".join(tests) if tests else "false"
-
-        source_lines += [
-            "    {",
-            f"        bool now = ({expression});",
-            f"        _input_pressed[{index}] = now && !_input_down[{index}];",
-            f"        _input_down[{index}] = now;",
-            "    }",
-        ]
-
-    source_lines += [
-        "}",
-        "",
-        "bool KeyDown(InputAction action) {",
-        "    return action.id < INPUT_ACTION_COUNT && _input_down[action.id];",
-        "}",
-        "",
-        "bool KeyJustPressed(InputAction action) {",
-        "    return action.id < INPUT_ACTION_COUNT && _input_pressed[action.id];",
-        "}",
-        "",
-    ]
-
-    # === Write generated files ===
-
-    os.makedirs(output_dir or ".", exist_ok=True)
-
-    outputs = {
-        os.path.join(output_dir, "input.h"): "\n".join(header_lines),
-        os.path.join(output_dir, "input.c"): "\n".join(source_lines),
-    }
-
-    for path, content in outputs.items():
-        if not os.path.exists(path):
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
-        else:
-            with open(path, "r", encoding="utf-8") as f:
-                old = f.read()
-
-            if old != content:
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
-
-
-
-# --------------------------------------------------
-# Desktop / Keyboard backend
-# --------------------------------------------------
-
-def desktop_key(binding):
+def keyboard_key(binding):
     if not binding.startswith("Key_"):
         fail(
-            f"'{binding}' is not a desktop key. "
+            f"'{binding}' is not a keyboard key. "
             "Expected a Key_ binding."
         )
 
     key = binding[4:]
 
-    # Direct SDL scancode aliases
     special = {
         "Arrow_Up": "UP",
         "Arrow_Down": "DOWN",
@@ -466,146 +402,348 @@ def desktop_key(binding):
         return f"SDL_SCANCODE_{special[key]}"
 
     fail(
-        f"Unknown desktop key '{binding}'. "
-        "Add its SDL scancode mapping to desktop_key()."
+        f"Unknown keyboard key '{binding}'. "
+        # "Add its SDL scancode mapping to keyboard_key()."
     )
 
 
-def generate_keyboard(definitions, blocks, output_dir):
-    if "KEYBOARD" not in blocks:
-        fail("Missing KEYBOARD block.")
-
-    actions = blocks["KEYBOARD"]
-
-    # === Generate input.h ===
-
-    header_lines = [
-        "// Generated by cbuild. Do not edit.",
-        "#pragma once",
-        "",
-        "#include <stdint.h>",
-        "#include <stdbool.h>",
-        "",
-        "typedef struct {",
-        "    uint8_t id;",
-        "    const char *name;",
-        "} InputAction;",
-        "",
-        "typedef struct {",
-    ]
-
-    for action in definitions:
-        header_lines.append(f"    InputAction {action};")
-
-    header_lines += [
-        "} InputBindings;",
-        "",
-        "extern const InputBindings INPUT;",
-        "",
-        f"#define INPUT_ACTION_COUNT {len(definitions)}",
-        "",
-        "void Input_Scan(void);",
-        "bool KeyDown(InputAction action);",
-        "bool KeyJustPressed(InputAction action);",
-        "",
-    ]
-
-    # === Generate input.c ===
-
-    source_lines = [
-        "// Generated by cbuild. Do not edit.",
-        "",
-        '#include "input.h"',
-        "#include <SDL.h>",
-        '#include "keypadc.h"',
-        "",
-        "const InputBindings INPUT = {",
-    ]
-
-    for index, action in enumerate(definitions):
-        data = actions[action]
-        bindings = data["bindings"]
-
-        name = data.get("name")
-
-        if not name:
-            name = (
-                bindings[0].replace("Key_", "")
-                if bindings[0] != "NONE"
-                else action
-            )
-
-        source_lines.append(
-            f"    .{action} = {{{index}, {c_string(name)}}},"
+def gamepad_key(binding):
+    if not binding.startswith("Pad_"):
+        fail(
+            f"'{binding}' is not a gamepad binding. "
+            "Expected a Pad_ binding."
         )
 
-    source_lines += [
-        "};",
+    key = binding[4:]
+
+    # Buttons and d-pad
+    if key in PAD_BUTTONS:
+        return f"_pad_button(SDL_CONTROLLER_BUTTON_{PAD_BUTTONS[key]})"
+
+    # Analog triggers (treated as buttons)
+    if key in PAD_TRIGGERS:
+        return f"_pad_axis({PAD_TRIGGERS[key]}, +1)"
+
+    # Stick directions, e.g. Left_Pos_Y
+    match = re.fullmatch(r"(Left|Right)_(Pos|Neg)_([XY])", key)
+
+    if match:
+        stick, direction, axis = match.groups()
+        sdl_axis = f"SDL_CONTROLLER_AXIS_{stick.upper()}{axis}"
+        sign = PAD_AXIS_SIGN[(direction, axis)]
+
+        return f"_pad_axis({sdl_axis}, {sign})"
+
+    fail(f"Unknown gamepad binding '{binding}'.")
+
+# --------------------------------------------------
+# C rendering helpers
+# --------------------------------------------------
+
+def c_string(value):
+    return (
+        '"'
+        + value.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\n", "\\n")
+        + '"'
+    )
+
+def action_label(action, actions):
+    if action == ANY_KEY:
+        return "Anything"
+
+    return display_name(action, actions[action])
+
+def display_name(action, data):
+    if data.get("name"):
+        return data["name"]
+
+    first = data["bindings"][0]
+
+    if first == "NONE":
+        return action
+    else: 
+        first = data["bindings"][0]
+
+        return (
+            action
+            if first == "NONE"
+            else re.sub(r"^(Key|Pad|Touch)_", "", first)
+        )
+
+
+# --------------------------------------------------
+# C code generation
+# --------------------------------------------------
+
+def render_header(definitions):
+    all_actions = definitions + [ANY_KEY]
+
+    fields = "\n".join(
+        f"    InputAction {action};"
+        for action in all_actions
+    )
+
+    return load_template("input.h").substitute(
+        action_fields=fields,
+        action_count=len(all_actions),
+    )
+
+
+def render_source(definitions, blocks, backends):
+    count = len(backends)
+    all_actions = definitions + [ANY_KEY]
+
+    # Merge includes (deduplicated, order preserved) and helper code
+    include_lines = []
+
+    for backend in backends:
+        for line in backend.includes.splitlines():
+            if line.strip() and line not in include_lines:
+                include_lines.append(line)
+
+    if any(b.prompt for b in backends) and "#include <graphx.h>" not in include_lines:
+            include_lines.append("#include <graphx.h>")
+
+    includes = "\n".join(include_lines)
+
+    helpers = [b.helpers for b in backends if b.helpers]
+
+    if helpers:
+        includes += "\n\n" + "\n\n".join(helpers)
+
+    # Merge scan prologues (deduplicated line by line)
+    prologue_lines = []
+
+    for backend in backends:
+        for line in backend.scan_prologue.splitlines():
+            if line not in prologue_lines:
+                prologue_lines.append(line)
+
+    prologue_lines.append(
+        f"    bool _input_dev_active[{count}] = {{false}};"
+    )
+
+    # Initial names come from the first (primary) backend
+    primary = blocks[backends[0].block]
+
+    inits = "\n".join(
+        f"    .{action} = "
+        f"{{{index}, {c_string(action_label(action, primary))}}},"
+        for index, action in enumerate(all_actions)
+    )
+
+    # Per-backend name tables, plus the function that swaps them in
+    support = []
+    table_names = []
+
+    for backend in backends:
+        table = f"_input_names_{backend.block.lower()}"
+        table_names.append(table)
+
+        entries = ",\n".join(
+            "    " + c_string(action_label(action, blocks[backend.block]))
+            for action in all_actions
+        )
+
+        support.append(
+            f"static const char *const {table}[INPUT_ACTION_COUNT] = {{\n"
+            f"{entries}\n"
+            f"}};"
+        )
+
+    setters = "\n".join(
+        f"    INPUT.{action}.name = names[{index}];"
+        for index, action in enumerate(all_actions)
+    )
+
+    support.append(
+        f"static const char *const *const _input_name_sets[{count}] = {{\n"
+        + ",\n".join(f"    {t}" for t in table_names)
+        + "\n};\n\n"
+        "static int _input_device = 0;\n"
+        f"static bool _input_dev_was_active[{count}] = {{0}};\n\n"
+        "static void _input_set_device(int device) {\n"
+        "    const char *const *names = _input_name_sets[device];\n"
+        "    _input_device = device;\n"
+        f"{setters}\n"
+        "}"
+    )
+
+    support.append(render_prompt(backends))
+
+    # Per action: evaluate each backend separately so we know which
+    # device produced the input, then OR them for the action state
+    body = []
+
+    for index, action in enumerate(all_actions):
+        lines = []
+        flags = []
+
+        for b_index, backend in enumerate(backends):
+            if action == ANY_KEY:
+                tests = [backend.any_expr] if backend.any_expr else []
+            else:
+                bindings = blocks[backend.block][action]["bindings"]
+
+                tests = (
+                    []
+                    if bindings == ["NONE"]
+                    else [backend.key_to_expr(b) for b in bindings]
+                )
+
+            expr = " || ".join(tests) or "false"
+
+            lines.append(f"        bool k{b_index} = ({expr});")
+            lines.append(
+                f"        _input_dev_active[{b_index}] |= k{b_index};"
+            )
+            flags.append(f"k{b_index}")
+
+
+        body.append(
+            "    {\n"
+            + "\n".join(lines) + "\n"
+            f"        bool now = {' || '.join(flags)};\n"
+            f"        _input_pressed[{index}] = "
+            f"now && !_input_down[{index}];\n"
+            f"        _input_down[{index}] = now;\n"
+            "    }"
+        )
+
+    # Switch names when a device newly becomes active
+    epilogue = (
+        f"    for (int i = 0; i < {count}; i++) {{\n"
+        "        if (_input_dev_active[i] && !_input_dev_was_active[i]\n"
+        "            && i != _input_device)\n"
+        "            _input_set_device(i);\n"
+        "\n"
+        "        _input_dev_was_active[i] = _input_dev_active[i];\n"
+        "    }"
+    )
+
+    return load_template("input.c").substitute(
+        includes=includes,
+        action_inits=inits,
+        device_support="\n\n".join(support),
+        scan_prologue="\n".join(prologue_lines),
+        scan_body="\n".join(body),
+        scan_epilogue=epilogue,
+    )
+
+def render_prompt(backends):
+    impls = [b for b in backends if b.prompt]
+
+    if not impls:
+        return (
+            "const char *TextPrompt(const char *txt, int maxChars)\n"
+            "{\n    (void)txt;\n    (void)maxChars;\n    return NULL;\n}"
+        )
+
+    # A backend without its own prompt falls back to the first one that has one
+    cases = "\n".join(
+        f"        case {i}: result = "
+        f"_prompt_{(b if b.prompt else impls[0]).block.lower()}(txt, maxChars); break;"
+        for i, b in enumerate(backends)
+    )
+
+    return (
+        PROMPT_COMMON + "\n\n"
+        + "\n\n".join(b.prompt for b in impls) + "\n\n"
+        + "const char *TextPrompt(const char *txt, int maxChars)\n{\n"
+          "    const char *result = NULL;\n\n"
+          "    if (maxChars <= 0 || maxChars > INPUT_PROMPT_MAX)\n"
+          "        maxChars = INPUT_PROMPT_MAX;\n\n"
+          "    gfx_SetColor(_prompt_fg);\n"
+          "    gfx_SetTextFGColor(_prompt_fg);\n"
+          "    gfx_SetTextBGColor(_prompt_bg);\n"
+          "    gfx_SetTextTransparentColor(_prompt_tp());\n\n"
+          "    switch (_input_device)\n    {\n"
+          f"{cases}\n"
+          "    }\n\n"
+          "    gfx_SetColor(_rest_color);\n"
+          "    gfx_SetTextFGColor(_rest_fg);\n"
+          "    gfx_SetTextBGColor(_rest_bg);\n"
+          "    gfx_SetTextTransparentColor(_rest_tp);\n\n"
+          "    Input_Scan();\n"
+          "    Input_Scan();\n\n"
+          "    return result;\n}"
+    )
+
+# --------------------------------------------------
+# Output generation
+# --------------------------------------------------
+
+def generate_placeholder(output_dir):
+    out = Path(output_dir or ".")
+    out.mkdir(parents=True, exist_ok=True)
+
+    content = "\n".join([
+        "// Generated by cbuild. Do not edit.",
+        "// Placeholder input.h file "
+        "([ERROR] platform not implemented)",
         "",
-        "static bool _input_down[INPUT_ACTION_COUNT] = {0};",
-        "static bool _input_pressed[INPUT_ACTION_COUNT] = {0};",
-        "",
-        "void Input_Scan(void) {",
-        "    // Process SDL events through the desktop runtime.",
-        "    kb_Scan();",
-        "",
-        "    const Uint8 *keyboard = SDL_GetKeyboardState(NULL);",
-        "",
-    ]
+    ])
 
-    for index, action in enumerate(definitions):
-        bindings = actions[action]["bindings"]
+    write_if_changed(out / "input.h", content)
 
-        tests = []
 
-        if bindings != ["NONE"]:
-            for binding in bindings:
-                key = desktop_key(binding)
-                tests.append(f"keyboard[{key}]")
+def generate(backend_names, definitions, blocks, output_dir):
+    backends = []
 
-        expression = " || ".join(tests) if tests else "false"
+    for name in backend_names:
+        if name not in BACKENDS:
+            fail(f"Unknown backend '{name}'.")
 
-        source_lines += [
-            "    {",
-            f"        bool now = ({expression});",
-            f"        _input_pressed[{index}] = now && !_input_down[{index}];",
-            f"        _input_down[{index}] = now;",
-            "    }",
-        ]
+        backend = BACKENDS[name]
 
-    source_lines += [
-        "}",
-        "",
-        "bool KeyDown(InputAction action) {",
-        "    return action.id < INPUT_ACTION_COUNT && _input_down[action.id];",
-        "}",
-        "",
-        "bool KeyJustPressed(InputAction action) {",
-        "    return action.id < INPUT_ACTION_COUNT && _input_pressed[action.id];",
-        "}",
-        "",
-    ]
+        if backend.block not in blocks:
+            fail(f"Missing {backend.block} block.")
 
-    # === Write generated files ===
+        backends.append(backend)
 
-    os.makedirs(output_dir or ".", exist_ok=True)
+    out = Path(output_dir or ".")
+    out.mkdir(parents=True, exist_ok=True)
 
-    outputs = {
-        os.path.join(output_dir, "input.h"): "\n".join(header_lines),
-        os.path.join(output_dir, "input.c"): "\n".join(source_lines),
-    }
+    write_if_changed(
+        out / "input.h",
+        render_header(definitions),
+    )
 
-    for path, content in outputs.items():
-        if not os.path.exists(path):
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
+    write_if_changed(
+        out / "input.c",
+        render_source(definitions, blocks, backends),
+    )
+
+
+# --------------------------------------------------
+# Platform generation
+# --------------------------------------------------
+
+def generate_platform(platform, definitions, blocks, output_dir):
+    if platform not in PLATFORMS:
+        fail(f"Unsupported platform '{platform}'.")
+
+    implemented = []
+
+    for name in PLATFORMS[platform]:
+        if name in BACKENDS:
+            implemented.append(name)
         else:
-            with open(path, "r", encoding="utf-8") as f:
-                old = f.read()
+            print(
+                f"[Warning] The {name.lower()} input backend "
+                f"for {platform} has not been implemented yet."
+            )
 
-            if old != content:
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
+    if not implemented:
+        generate_placeholder(output_dir)
+        return
+
+    for name in implemented:
+        print(f"    - {name.lower()}")
+
+    generate(implemented, definitions, blocks, output_dir)
 
 
 # --------------------------------------------------
@@ -616,7 +754,7 @@ def main():
     if len(sys.argv) != 4:
         print(
             "Usage: generateinputs.py "
-            "config.cfg output.h platform"
+            "config.cfg output_dir platform"
         )
         sys.exit(1)
 
@@ -629,29 +767,21 @@ def main():
 
     definitions, blocks = parse_config(config)
 
-    backend = PLATFORMS[platform]
-
-    if "CALCULATOR" in backend:
-        print("    - calculator")
-        generate_calculator(definitions, blocks, output)
-
-    elif "KEYBOARD" in backend:
-        print("    - keyboard")
-        generate_keyboard(definitions, blocks, output)
-
-    # Need to make it be able to support multiple control skemes in the same platform
-
-    else:
-        print(
-            f"[Warning] The {platform} input backend "
-            "has not been implemented yet."
-        )
-        generate_placeholder(output)
+    generate_platform(
+        platform,
+        definitions,
+        blocks,
+        output,
+    )
 
 
 if __name__ == "__main__":
     try:
         main()
+
     except (ValueError, OSError) as error:
-        print(f"Input generation failed: {error}", file=sys.stderr)
+        print(
+            f"Input generation failed: {error}",
+            file=sys.stderr,
+        )
         sys.exit(1)

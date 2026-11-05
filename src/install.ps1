@@ -225,6 +225,12 @@ function Install-cbuilddir() {
 
     # Generate files from the embedded source.
     Set-Content `
+        -LiteralPath (Join-Path $helperDir "generationhelper.py") `
+        -Value @'
+<python/generationhelper.py>
+'@ `
+        -Encoding utf8
+    Set-Content `
         -LiteralPath (Join-Path $helperDir "compilespritefolder.py") `
         -Value @'
 <python/compilespritefolder.py>
@@ -254,7 +260,57 @@ function Install-cbuilddir() {
 <python/spritetopngfolder.py>
 '@ `
         -Encoding utf8
-    
+
+    # --- Python-used C Templates ---
+     # directory
+    $templateDir = Join-Path $InstallDir "templates"
+    New-Item -ItemType Directory `
+        -Path $templateDir -Force | Out-Null
+
+    # Generate files from the embedded source.
+    Set-Content `
+        -LiteralPath (Join-Path $templateDir "input.h") `
+        -Value @'
+<templates/input.h>
+'@ `
+    -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $templateDir "input.c") `
+        -Value @'
+<templates/input.c>
+'@ `
+    -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $templateDir "gamepad.c") `
+        -Value @'
+<templates/gamepad.c>
+'@ `
+    -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $templateDir "prompt_common.c") `
+        -Value @'
+<templates/prompt_common.c>
+'@ `
+    -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $templateDir "prompt_calculator.c") `
+        -Value @'
+<templates/prompt_calculator.c>
+'@ `
+    -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $templateDir "prompt_keyboard.c") `
+        -Value @'
+<templates/prompt_keyboard.c>
+'@ `
+    -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $templateDir "prompt_gamepad.c") `
+        -Value @'
+<templates/prompt_gamepad.c>
+'@ `
+    -Encoding utf8
+
     # === Finalize Installation ===
 
     Install-CBuildProfile

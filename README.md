@@ -2,7 +2,7 @@
 
 **cbuild** is a Windows PowerShell build helper for C projects targeting the TI-84 Plus CE calculator, Windows desktop, and Linux desktop. It generates the appropriate Makefile or CMake project, compiles the project, and organizes the outputs.
 
-Current source version: **1.6.9**.
+Current source version: **1.7.18**.
 
 | Target | Build environment | Output directory |
 |---|---|---|
@@ -138,7 +138,7 @@ cbuild --version
 cbuild -help
 ```
 
-The current source version is `1.6.9`.
+The current source version is `1.7.18`.
 
 ## Project setup
 

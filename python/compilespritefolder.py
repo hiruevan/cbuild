@@ -1,4 +1,5 @@
 ﻿import sys, os, re
+from generationhelper import *
 
 def c_name(s):
     s = re.sub(r'[^0-9a-zA-Z_]', '_', s)

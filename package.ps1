@@ -2,7 +2,7 @@ function Complete-CBuild {
     [CmdletBinding()]
     param([switch]$NoInstall)
 
-    function ReplaceVersion() {
+    function ReplaceVersion {
         param (
             [Parameter(Mandatory = $true)]
             [string]$File,
@@ -11,24 +11,23 @@ function Complete-CBuild {
             [string]$Replacement
         )
 
-        if (!(Test-Path $File -PathType Leaf)) {
-            Write-Error "File not found: $File"
-            exit 1
+        if (!(Test-Path -LiteralPath $File -PathType Leaf)) {
+            throw "File not found: $File"
         }
 
-        # Read the file contents
-        $Content = Get-Content $File -Raw
+        $Content = [System.IO.File]::ReadAllText($File)
 
-        # Match semantic versions (x.y.z)
         $Pattern = '\b\d+\.\d+\.\d+\b'
+        $UpdatedContent = [regex]::Replace($Content, $Pattern, $Replacement)
 
-        # Replace all matches
-        $UpdatedContent = $Content -replace $Pattern, $Replacement
+        if ($Content -eq $UpdatedContent) {
+            Write-Warning "No version numbers found in $File"
+            return
+        }
 
-        # Write the updated contents
-        Set-Content -Path $File -Value $UpdatedContent -NoNewline
+        [System.IO.File]::WriteAllText($File, $UpdatedContent)
 
-        Write-Host "Successfully replaced all versions in $File" -ForegroundColor Green
+        Write-Host "Successfully replaced versions in $File" -ForegroundColor Green
     }
 
 
@@ -93,8 +92,9 @@ function Complete-CBuild {
                       $mainText.Substring($verMatch.Index + $verMatch.Length)
         $mainText = $bumpedMain
 
-        # Bump README.md too
+        # Bump README.md & help.txt too
         ReplaceVersion -File "README.md" -Replacement $newVer
+        ReplaceVersion -File "help.txt" -Replacement $newVer
     } else {
         Write-Warning 'Could not find $script:CBuildVersion = "x.y.z" in module.ps1; version not bumped.'
     }
