@@ -1,18 +1,19 @@
 cbuild - C Build Helper for Calculator and Desktop Platforms
-Version: 1.7.18
+Version: 1.8.12
 
 Usage:
   cbuild --version
   cbuild -help
   cbuild install [-cal] [-win] [-lnx [architecture ...]] [-all] [-force]
   cbuild uninstall [-all] [-force]
-  cbuild make  (-cal | -win | -lnx [architecture ...] | -all)
-  cbuild clean (-cal | -win | -lnx [architecture ...] | -all)
-  cbuild export (-cal | -win | -lnx [architecture ...] | -all)
+  cbuild make  (-cal | -win | -webp | -lnx [architecture ...] | -all)
+  cbuild clean (-cal | -win | -webp | -lnx [architecture ...] | -all)
+  cbuild export (-cal | -win | -webp | -lnx [architecture ...] | -all)
 
 Supported targets:
   -cal        TI-84 Plus CE calculator (CEdev + GNU Make).
   -win        Windows desktop (MSYS2 UCRT64 + GCC + CMake + Ninja + SDL2).
+  -webp       Browser build: one stand-alone HTML file (Emscripten via WSL2 + SDL2).
   -lnx        Linux desktop through WSL2 (x86_64 by default).
   -lnx aarch64
               Linux ARM64 cross-compilation.
@@ -34,6 +35,7 @@ Commands:
 Install flags:
   -cal        Installs the TI-84 Plus CE calculator toolchain.
   -win        Installs Windows desktop build dependencies.
+  -webp       Installs the Webpage desktop build dependencies.
   -lnx        Installs WSL2/Linux dependencies (x86_64 by default).
   -all        Installs dependencies selected by PLATFORMS in Project.mk.
   -force      Forces the base cbuild installation to be recreated.
@@ -45,23 +47,26 @@ the base cbuild installation.
 Make flags:
   -cal        Builds the calculator target.
   -win        Builds the Windows desktop target.
+  -webp       Builds the Webpage desktop target.
   -lnx        Builds the selected Linux architecture (x86_64 by default).
   -all        Builds targets selected by PLATFORMS in Project.mk.
 
 Clean flags:
   -cal        Removes the calculator build and binary directories.
   -win        Removes the Windows build and binary directories.
+  -webp       Removes the Webpage build and output directories.
   -lnx        Removes the selected Linux build and binary directories.
   -all        Deletes the complete BUILD and BIN directories from Project.mk.
 
 Export flags:
   -cal        Exports calculator output files.
   -win        Exports Windows output files.
+  -webp       Exports Webpage output files.
   -lnx        Exports selected Linux output files.
   -all        Exports recognized files from all of BIN.
 
 Export currently recognizes these file extensions:
-  .8xp, .8xv, .exe, .elf
+  .8xp, .8xv, .exe, .elf, .html
   macOS .app bundles are not currently supported by export.
 
 Linux architecture arguments (must follow -lnx):
@@ -111,11 +116,12 @@ Project configuration:
     SRCDIR      C source directory (defaults to src)
     INCLUDE     Header directory (defaults to include)
     RESOURCES   Resource directory (defaults to resources)
+    ICON        The name of the icon file (inside resources directory, .ico extension)
     SRC         Entry-point source file (defaults to main.c)
     PLATFORMS   Targets used by -all (defaults to cal win lnx)
 
 Valid PLATFORMS values:
-  cal, win, lnx, lnx-x86_64, lnx-aarch64, lnx-armhf
+  cal, win, webp, lnx, lnx-x86_64, lnx-aarch64, lnx-armhf
 
 Notes:
   - Run cbuild commands in Windows PowerShell.

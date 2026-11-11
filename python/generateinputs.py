@@ -22,6 +22,7 @@ PLATFORMS = {
     "lnx-x86_64": ["KEYBOARD", "GAMEPAD"],
     "lnx-aarch64": ["KEYBOARD", "GAMEPAD"],
     "lnx-armhf": ["KEYBOARD", "GAMEPAD"],
+    "webp": ["KEYBOARD", "GAMEPAD"],
     "android": ["MOBILE"],
     "ios": ["MOBILE"],
 }

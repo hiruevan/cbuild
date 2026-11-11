@@ -11,6 +11,7 @@ function Invoke-cbuildmake() {
         [bool]$all,
         [bool]$runCal,
         [bool]$runWin,
+        [bool]$runWeb,
         [bool]$runLnx,
         [string[]]$lnxArchs = @("x86_64")
     )
@@ -23,6 +24,9 @@ function Invoke-cbuildmake() {
         }
         if ($cfg.PLATFORMS -contains "win") {
             $runWin = $true
+        }
+        if ($cfg.PLATFORMS -contains "webp") {
+            $runWeb = $true
         }
 
         $lnxArchs = @()
@@ -122,6 +126,66 @@ function Invoke-cbuildmake() {
         }
         finally {
             # Clean up
+            Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Build Webpage
+    if ($runWeb) {
+        # Check dependencies
+        if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+            throw "WSL not found. Run 'cbuild install -webp'"
+        }
+        & wsl.exe -- bash -lc 'test -x ~/emsdk/upstream/emscripten/emcc'
+        if ($LASTEXITCODE -ne 0) { throw "Emscripten not found. Run 'cbuild install -webp'." }
+
+        $winShim   = Join-Path $HOME "cbuild/desk_shim"
+        $linuxShim = (& wsl.exe wslpath -a ($winShim.Replace('\', '/'))).Trim()
+
+        $buildDir = "$($cfg.BUILD)/webp"
+
+        # Generate resources
+        Write-Host "`n>>> Generating Webpage resources..."
+        Invoke-CBuildResources -Cfg $cfg -OutDir $buildDir
+
+        # Generate cmake file
+        Write-Host ">>> Configuring Webpage build..."
+        New-CBuildFile (Join-Path $script:CBuildToolchainDir "toolchain-desk.cmake") "CMakeLists.txt" $cfg -Shim $linuxShim
+
+        # Generates shell.html
+        $text = Get-Content -LiteralPath (Join-Path $script:CBuildInstallDir "web_shim\shell.html") -Raw
+
+        $iconPath = Join-Path $PWD.Path (Join-Path $cfg.RESOURCES $cfg.ICON)
+        $link = ''
+        if (Test-Path -LiteralPath $iconPath -PathType Leaf) {
+            $b64  = [Convert]::ToBase64String([IO.File]::ReadAllBytes($iconPath))
+            $link = '<link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,' + $b64 + '">'
+        }
+
+        $webDir = Join-Path $script:CBuildInstallDir "web_shim"
+        $text = Get-Content -LiteralPath (Join-Path $webDir "shell.html") -Raw
+        $css  = Get-Content -LiteralPath (Join-Path $webDir "style.css")  -Raw
+        $js   = Get-Content -LiteralPath (Join-Path $webDir "module.js")  -Raw
+
+        $text = $text.Replace('__STYLE__', $css).Replace('__MODULE_JS__', $js)
+        $text = $text.Replace('__FAVICON_LINK__', $link).Replace('__TITLE__', $cfg.NAME)
+
+        $shellOut = Join-Path (Join-Path $PWD.Path $buildDir) "shell.html"
+        [IO.File]::WriteAllText($shellOut, $text, (New-Object Text.UTF8Encoding $false))
+        $shellLinux = (& wsl.exe wslpath -a ($shellOut.Replace('\', '/'))).Trim()
+
+        try {
+            $env = "source ~/emsdk/emsdk_env.sh >/dev/null 2>&1"
+
+            Write-Host ">>> Building Webpage target..."
+            & wsl.exe --cd "$($PWD.Path)" -- bash -lc "$env && emcmake cmake -S . -B $buildDir -G Ninja -DCMAKE_BUILD_TYPE=Release -DCBUILD_SHELL_FILE=$shellLinux"
+            if ($LASTEXITCODE -ne 0) { throw "WebP configure failed: exit code $LASTEXITCODE." }
+            
+            & wsl.exe --cd "$($PWD.Path)" -- bash -lc "$env && cmake --build $buildDir --parallel"
+            if ($LASTEXITCODE -ne 0) { throw "WebP build failed: exit code $LASTEXITCODE." }
+        }
+        finally {
+            # clean up
             Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force -ErrorAction SilentlyContinue
         }
     }

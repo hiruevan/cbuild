@@ -3,6 +3,7 @@ function Invoke-cbuildexport() {
         [bool]$all,
         [bool]$runCal,
         [bool]$runWin,
+        [bool]$runWeb,
         [bool]$runLnx,
         [string[]]$lnxArchs = @("x86_64")
     )
@@ -11,7 +12,7 @@ function Invoke-cbuildexport() {
 
     $bin     = $cfg.BIN
     $export  = $cfg.EXPORT
-    $extensions = @(".8xp", ".8xv", ".exe", ".elf")
+    $extensions = @(".8xp", ".8xv", ".exe", ".elf", ".html")
 
     New-Item -ItemType Directory -Path $export -Force | Out-Null
 
@@ -31,16 +32,24 @@ function Invoke-cbuildexport() {
     }
 
     if ($runWin) {
-        Write-Host "`n>>> Exporting windows binaries..."
+        Write-Host "`n>>> Exporting Windows binaries..."
         $n = Copy-FilteredFiles -Source (Join-Path $bin "win") `
                                 -Destination (Join-Path $export "win") `
                                 -Extensions $extensions
         Write-Host "    $n file(s) exported." -ForegroundColor Green
     }
 
+    if ($runWeb) {
+        Write-Host "`n>>> Exporting Webpage html..."
+        $n = Copy-FilteredFiles -Source (Join-Path $bin "webp") `
+                                -Destination (Join-Path $export "webp") `
+                                -Extensions $extensions
+        Write-Host "    $n file(s) exported." -ForegroundColor Green
+    }
+
     if ($runLnx) {
         foreach ($arch in $lnxArchs) {
-            Write-Host "`n>>> Exporting linux ($arch) binaries..."
+            Write-Host "`n>>> Exporting Linux ($arch) binaries..."
             $folder = "lnx-$arch"
             $n = Copy-FilteredFiles -Source (Join-Path $bin $folder) `
                                     -Destination (Join-Path $export $folder) `

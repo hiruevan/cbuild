@@ -41,11 +41,11 @@ function Read-CBuildConfig {
     if (-not $cfg["INCLUDE"])     { $cfg["INCLUDE"]     = "include" }
     if (-not $cfg["RESOURCES"])   { $cfg["RESOURCES"]   = "resources" }
     if (-not $cfg["SRC"])         { $cfg["SRC"]         = "main.c" }
-    if (-not $cfg["ICON"])         { $cfg["SRC"]        = "icon.ico" }
+    if (-not $cfg["ICON"])        { $cfg["ICON"]        = "icon.ico" }
     if ($cfg["PLATFORMS"].Count -eq 0) { $cfg["PLATFORMS"] = @("cal", "win", "lnx")}
 
     # Validate platforms
-    $valid = @("cal", "win", "lnx", "lnx-x86_64", "lnx-aarch64", "lnx-armhf")
+    $valid = @("cal", "win", "lnx", "lnx-x86_64", "lnx-aarch64", "lnx-armhf", "webp")
     $bad = $platforms | Where-Object { $valid -notcontains $_ }
     if ($bad) { throw "Project.mk has unknown PLATFORMS: $($bad -join ', ')" }
 

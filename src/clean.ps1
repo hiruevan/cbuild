@@ -3,6 +3,7 @@ function Invoke-cbuildclean() {
         [bool]$all,
         [bool]$runCal,
         [bool]$runWin,
+        [bool]$runWeb,
         [bool]$runLnx,
         [string[]]$lnxArchs = @("x86_64")
     )
@@ -41,6 +42,13 @@ function Invoke-cbuildclean() {
         Write-Host "`n>>> Cleaning Windows build..."
         & $removeFolder "$($cfg.BUILD)/win"
         & $removeFolder "$($cfg.BIN)/win"
+    }
+
+    # Clean webp
+    if ($runWeb) {
+        Write-Host "`n>>> Cleaning Webpage build..."
+        & $removeFolder "$($cfg.BUILD)/webp"
+        & $removeFolder "$($cfg.BIN)/webp"
     }
 
     # Clean linux

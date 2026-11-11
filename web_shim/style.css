@@ -1,0 +1,14 @@
+html, body { 
+    margin: 0; 
+    height: 100%; 
+    background: #000; 
+    overflow: hidden; 
+}
+canvas { 
+    display: block; 
+    width: 100vw; 
+    height: 100vh; 
+    object-fit: contain; 
+    image-rendering: pixelated; 
+    outline: none; 
+}

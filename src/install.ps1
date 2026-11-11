@@ -5,6 +5,7 @@ function Install-cbuild() {
         [bool]$runCal,
         [bool]$runWin,
         [bool]$runLnx,
+        [bool]$runWeb,
         [string[]]$lnxArchs = @("x86_64")
     )
     if ($all) {
@@ -15,6 +16,9 @@ function Install-cbuild() {
         }
         if ($cfg.PLATFORMS -contains "win") {
             $runWin = $true
+        }
+        if ($cfg.PLATFORMS -contains "webp") {
+            $runWeb = $true
         }
 
         $lnxArchs = @()
@@ -52,6 +56,11 @@ function Install-cbuild() {
     # Install linux profile
     if ($runLnx) {
         Install-cbuildLinux -lnxArchs $lnxArchs
+    }
+
+    # Install Webp profile
+    if ($runWeb) {
+        Install-CBuildWebp
     }
 
     Write-Host "cbuild installed successfully." -ForegroundColor Green
@@ -119,16 +128,17 @@ function Install-cbuilddir() {
 <requirements.txt>
 '@ `
         -Encoding utf8
+    # ------ SHIMS ------
 
     # --- desk_shim ---
     # directories
-    $shimDir = Join-Path $InstallDir "desk_shim"
+    $deskShimDir = Join-Path $InstallDir "desk_shim"
     New-Item -ItemType Directory `
-        -Path $shimDir -Force | Out-Null
-    $includeDir = Join-Path $shimDir "include"
+        -Path $deskShimDir -Force | Out-Null
+    $includeDir = Join-Path $deskShimDir "include"
     New-Item -ItemType Directory `
         -Path $includeDir -Force | Out-Null
-    $srcDir = Join-Path $shimDir "src"
+    $srcDir = Join-Path $deskShimDir "src"
     New-Item -ItemType Directory `
         -Path $srcDir -Force | Out-Null
 
@@ -182,6 +192,33 @@ function Install-cbuilddir() {
         -LiteralPath (Join-Path $srcDir "keypadc.c") `
         -Value @'
 <desk_shim/src/keypadc.c>
+'@ `
+        -Encoding utf8
+
+    # --- web_shim ---
+    # directories
+    $webShimDir = Join-Path $InstallDir "web_shim"
+    New-Item -ItemType Directory `
+        -Path $webShimDir -Force | Out-Null
+
+    # Generate files from the embedded source.
+    Set-Content `
+        -LiteralPath (Join-Path $webShimDir "shell.html") `
+        -Value @'
+<web_shim/shell.html>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $webShimDir "style.css") `
+        -Value @'
+<web_shim/style.css>
+'@ `
+        -Encoding utf8
+
+    Set-Content `
+        -LiteralPath (Join-Path $webShimDir "module.js") `
+        -Value @'
+<web_shim/module.js>
 '@ `
         -Encoding utf8
 
@@ -487,4 +524,54 @@ apt-get install -y $PKGS
         ($crossScript -replace "`r", "") | & wsl.exe -u root -- bash -s -- $archCsv $pkgCsv
         if ($LASTEXITCODE -ne 0) { throw "Failed to install cross-compile dependencies in WSL." }
     }
+}
+
+function Install-CBuildWebp() {
+    # 1. WSL itself
+    if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+        throw "wsl.exe not found. Enable WSL on this Windows version first."
+    }
+
+    # wsl output is UTF-16, so strip NULs before comparing
+    $distros = (& wsl.exe -l -q 2>$null) -join ""
+    $distros = $distros -replace "`0", ""
+
+    if ([string]::IsNullOrWhiteSpace($distros)) {
+        Write-Host "Installing WSL2 with Ubuntu (may require admin + a reboot)..."
+        Write-Host "If a wsl terminal opens, enter 'exit' to continue"
+        & wsl.exe --install -d Ubuntu-22.04
+        & wsl.exe --set-default Ubuntu-22.04
+        Write-Host "Reboot if prompted, finish the Ubuntu first-run setup,"
+        Write-Host "then run 'cbuild install -webp' again to install the packages." `
+            -ForegroundColor Yellow
+        return
+    }
+
+    #  2. apt packages
+    & wsl.exe -u root -- bash -c "apt-get update && apt-get install -y git python3 cmake ninja-build xz-utils bzip2 ca-certificates"
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install Emscripten prerequisites in WSL." }
+
+    # 3. emsdk install
+    $emsdkScript = @'
+set -e
+cd "$HOME"
+if [ -d emsdk ]; then
+  git -C emsdk pull
+else
+  git clone https://github.com/emscripten-core/emsdk.git
+fi
+cd emsdk
+if [ ! -x upstream/emscripten/emcc ]; then
+  ./emsdk install latest
+  ./emsdk activate latest
+fi
+# end
+'@
+
+    ($emsdkScript -replace "`r", "") | & wsl.exe -- bash -s
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install Emscripten in WSL." }
+
+    # Final check
+    & wsl.exe -- bash -lc 'source ~/emsdk/emsdk_env.sh >/dev/null 2>&1 && emcc --version'
+    if ($LASTEXITCODE -ne 0) { throw "emcc is not working after install." }
 }

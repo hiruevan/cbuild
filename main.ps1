@@ -9,11 +9,11 @@
 }
 
 $script:CBuildCommands = @{
-    install   = @{ Flags = 'cal','win','lnx','all','force'; Run = 'Install-cbuild';       NeedsInstall = $false }
+    install   = @{ Flags = 'cal','win','lnx','webp','all','force'; Run = 'Install-cbuild';       NeedsInstall = $false }
     uninstall = @{ Flags = 'all','force';                   Run = 'Uninstall-cbuild';     NeedsInstall = $true  }
-    make      = @{ Flags = 'cal','win','lnx','all';         Run = 'Invoke-cbuildmake';    NeedsInstall = $true; NeedsProject = $true }
-    clean     = @{ Flags = 'cal','win','lnx','all';         Run = 'Invoke-cbuildclean';   NeedsInstall = $true; NeedsProject = $true }
-    export    = @{ Flags = 'cal','win','lnx','all';         Run = 'Invoke-cbuildexport';  NeedsInstall = $true; NeedsProject = $true }
+    make      = @{ Flags = 'cal','win','lnx','webp','all';         Run = 'Invoke-cbuildmake';    NeedsInstall = $true; NeedsProject = $true }
+    clean     = @{ Flags = 'cal','win','lnx','webp','all';         Run = 'Invoke-cbuildclean';   NeedsInstall = $true; NeedsProject = $true }
+    export    = @{ Flags = 'cal','win','lnx','webp','all';         Run = 'Invoke-cbuildexport';  NeedsInstall = $true; NeedsProject = $true }
 }
 
 function ConvertTo-CBuildFlags {
@@ -94,7 +94,7 @@ function cbuild {
         if ($all -and $lnxArgs.Count) { throw "-all cannot be combined with Linux architectures." }
         if ($all -and $flags['all'].Count) { throw "-all does not take arguments." }
 
-        $anyPlatform = @('all','cal','win','lnx') | Where-Object { $flags.Contains($_) }
+        $anyPlatform = @('all','cal','win','lnx','webp') | Where-Object { $flags.Contains($_) }
         if ($cmd.NeedsProject -and -not $anyPlatform) { throw "Specify at least one platform flag." }
 
         if ($name -eq 'uninstall') {
@@ -105,6 +105,7 @@ function cbuild {
                 all      = $all
                 runCal   = $flags.Contains('cal')
                 runWin   = $flags.Contains('win')
+                runWeb   = $flags.Contains('webp')
                 runLnx   = $flags.Contains('lnx')
                 lnxArchs = $lnxArchs
             }

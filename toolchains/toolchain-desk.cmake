@@ -24,13 +24,17 @@ elseif(APPLE)
     set(PLATFORM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/CBINDIR/mac")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(PLATFORM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/CBINDIR/${CBUILD_LNX_DIR}")
+elseif(EMSCRIPTEN)
+    set(PLATFORM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/CBINDIR/webp")
 else()
     message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}")
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PLATFORM_OUTPUT_DIR}")
 
-find_package(SDL2 REQUIRED)
+if(NOT EMSCRIPTEN)
+    find_package(SDL2 REQUIRED)
+endif()
 
 add_library(ce_shim STATIC
     desk_shim/src/graphx.c
@@ -66,10 +70,10 @@ list(REMOVE_DUPLICATES PROJECT_SOURCES)
 
 if(WIN32)
     set(BUILD_DIR "${CMAKE_SOURCE_DIR}/CBUILDDIR/win")
-
 elseif(APPLE)
     set(BUILD_DIR "${CMAKE_SOURCE_DIR}/CBUILDDIR/mac")
-
+elseif(EMSCRIPTEN)
+    set(BUILD_DIR "${CMAKE_SOURCE_DIR}/CBUILDDIR/webp")
 else()
     set(BUILD_DIR "${CMAKE_SOURCE_DIR}/CBUILDDIR/${CBUILD_LNX_DIR}")
 endif()
@@ -154,9 +158,30 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         SUFFIX ".elf"
         RUNTIME_OUTPUT_DIRECTORY "${PLATFORM_OUTPUT_DIR}"
     )
+
+elseif(EMSCRIPTEN)
+    set_target_properties(${BUILD_NAME} PROPERTIES
+        OUTPUT_NAME "${BUILD_NAME}"
+        SUFFIX ".html"
+        RUNTIME_OUTPUT_DIRECTORY "${PLATFORM_OUTPUT_DIR}"
+    )
+    if(NOT EXISTS "${CBUILD_SHELL_FILE}")
+        message(FATAL_ERROR "Web shell file not found: ${CBUILD_SHELL_FILE}")
+    endif()
+
+    target_link_options(${BUILD_NAME} PRIVATE
+        -sSINGLE_FILE=1
+        -sEXIT_RUNTIME=1
+        -sASYNCIFY
+        --shell-file "${CBUILD_SHELL_FILE}"
+    )
+    set_target_properties(${BUILD_NAME} PROPERTIES LINK_DEPENDS "${CBUILD_SHELL_FILE}")
 endif()
 
-if(TARGET SDL2::SDL2)
+if(EMSCRIPTEN)
+    target_compile_options(ce_shim PUBLIC -sUSE_SDL=2)
+    target_link_options(ce_shim PUBLIC -sUSE_SDL=2)
+elseif(TARGET SDL2::SDL2)
     target_link_libraries(ce_shim PUBLIC SDL2::SDL2)
 else()
     target_include_directories(ce_shim PUBLIC
