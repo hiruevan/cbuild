@@ -3,7 +3,7 @@ $cbuildSource = $PSCommandPath
 New-Module -Name cbuild -ArgumentList $cbuildSource -ScriptBlock {
     param($SourcePath)
     $script:CBuildSource       = $SourcePath
-    $script:CBuildVersion      = "1.9.44"
+    $script:CBuildVersion      = "1.10.1"
     $script:CBuildInstallDir   = Join-Path $HOME "cbuild"
     $script:CBuildToolchainDir = Join-Path $script:CBuildInstallDir "toolchains"
 

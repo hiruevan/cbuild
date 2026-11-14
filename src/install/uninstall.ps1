@@ -20,15 +20,15 @@ function Uninstall-cbuild {
     Write-Host ">>> Uninstalling cbuild..."
     
     # Calculator toolchain
-    Write-Host ">>> Removing calculator toolchain..."
-    Remove-CBuildUserPath (Join-Path $cedev "bin")
-    [Environment]::SetEnvironmentVariable("CEDEV", $null, "User")
-    Remove-Item Env:\CEDEV -ErrorAction SilentlyContinue
-    Remove-CBuildDirectory $cedev
+    # Write-Host ">>> Removing calculator toolchain..."
+    # Remove-CBuildUserPath (Join-Path $cedev "bin")
+    # [Environment]::SetEnvironmentVariable("CEDEV", $null, "User")
+    # Remove-Item Env:\CEDEV -ErrorAction SilentlyContinue
+    # Remove-CBuildDirectory $cedev
 
     # Windows toolchain (PATH entry always; MSYS2 itself only with -all)
-    Write-Host ">>> Removing Windows toolchain entries..."
-    Remove-CBuildUserPath (Join-Path $msys "ucrt64\bin")
+    # Write-Host ">>> Removing Windows toolchain entries..."
+    # Remove-CBuildUserPath (Join-Path $msys "ucrt64\bin")
 
     if ($Full -and (Test-Path -LiteralPath $msys)) {
         Write-Host ">>> Uninstalling MSYS2..."

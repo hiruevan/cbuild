@@ -143,6 +143,11 @@ function Complete-CBuild {
     Get-Item -LiteralPath $outFull
 
     if ($NoInstall) { return }
+    
+    if (Test-Path -Path "$HOME/cbuild") { # Remove old install
+        Write-Host "`n>>> Removing old cbuild instilation..."
+        Remove-Item "$HOME/cbuild" -Recurse -Force
+    }
 
     $tmp = Join-Path $HOME 'cbuild.ps1'
     [System.IO.File]::WriteAllText($tmp, $combined, $utf8Bom)

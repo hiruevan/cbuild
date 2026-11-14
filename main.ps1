@@ -1,16 +1,7 @@
-﻿$script:CBuildPlatforms = [ordered]@{
-    cal = @{ Variants = @('ti84');   Install = ${function:Install-CBuildCalculator}
-             Make = ${function:Build-CBuildCal}; Dir = { param($v) 'cal' } }
-    win = @{ Variants = @('x86_64'); Install = ${function:Install-CBuildWindows}
-             Make = ${function:Build-CBuildWin}; Dir = { param($v) 'win' } }
-    lnx = @{ Variants = @('x86_64','aarch64','armhf'); Default = @('x86_64')
-             Install = ${function:Install-CBuildLinux}
-             Make = ${function:Build-CBuildLnx}; Dir = { param($v) "lnx-$v" } }
-}
-
-$script:CBuildCommands = @{
+﻿$script:CBuildCommands = @{
     install   = @{ Flags = 'cal','win','lnx','webp','gc','all','force'; Run = 'Install-cbuild';       NeedsInstall = $false }
-    uninstall = @{ Flags = 'all','force';                   Run = 'Uninstall-cbuild';     NeedsInstall = $true  }
+    uninstall = @{ Flags = 'all','force';                               Run = 'Uninstall-cbuild';     NeedsInstall = $true  }
+    new       = @{ Flags = 'platform','game','app';                     Run = 'Invoke-cbuildnew';     NeedsInstall = $true; NeedsProject = $false }
     make      = @{ Flags = 'cal','win','lnx','webp','gc','all';         Run = 'Invoke-cbuildmake';    NeedsInstall = $true; NeedsProject = $true }
     clean     = @{ Flags = 'cal','win','lnx','webp','gc','all';         Run = 'Invoke-cbuildclean';   NeedsInstall = $true; NeedsProject = $true }
     export    = @{ Flags = 'cal','win','lnx','webp','gc','all';         Run = 'Invoke-cbuildexport';  NeedsInstall = $true; NeedsProject = $true }
@@ -37,8 +28,7 @@ function ConvertTo-CBuildFlags {
             $flags[$cur] = @()
         }
         elseif ($cur) {
-            # Only Linux accepts positional arguments (architectures).
-            if ($cur -ne 'lnx') {
+            if (-not $cur -in @('lnx','platform','app','game')) {
                 throw "Flag '-$cur' does not accept arguments. Unexpected value '$t'."
             }
 
