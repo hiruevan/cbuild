@@ -47,7 +47,29 @@ static bool _pad_any(void)
     return false;
 }
 
+/* Wait until every button/stick is released so the key that closed the prompt
+   (Start/Z) is not seen again by the game as a fresh press. */
+static void _prompt_pad_release(void)
+{
+    for (int n = 0; n < 120; n++)
+    {
+        SDL_Delay(16);
+        _pad_refresh();
+        SDL_GameControllerUpdate();
+        if (!_pad_any())
+            break;
+    }
+}
+
 static const char *_prompt_gamepad(const char *txt, int max)
 {
-    return _prompt_osk(txt, max, "A: type  B: erase  +: ok  -: cancel", _prompt_pad_poll);
+    const char *r;
+#ifdef __gamecube__
+    /* GameCube pads have no +/-: START confirms, Z (reported as BACK) cancels. */
+    r = _prompt_osk(txt, max, "A: type  B: erase  Start: ok  Z: cancel", _prompt_pad_poll);
+#else
+    r = _prompt_osk(txt, max, "A: type  B: erase  +: ok  -: cancel", _prompt_pad_poll);
+#endif
+    _prompt_pad_release();
+    return r;
 }

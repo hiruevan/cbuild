@@ -5,7 +5,9 @@ function Invoke-cbuildclean() {
         [bool]$runWin,
         [bool]$runWeb,
         [bool]$runLnx,
-        [string[]]$lnxArchs = @("x86_64")
+        [string[]]$lnxArchs = @("x86_64"),
+
+        [bool]$runGC
     )
     # Get build config
     $cfg = Read-CBuildConfig
@@ -63,6 +65,13 @@ function Invoke-cbuildclean() {
             & $removeFolder "$($cfg.BUILD)/lnx"
             & $removeFolder "$($cfg.BIN)/lnx"
         }
+    }
+
+    # Clean GameCube
+    if ($runGC) {
+        Write-Host "`n>>> Cleaning GameCube build..."
+        & $removeFolder "$($cfg.BUILD)/gc"
+        & $removeFolder "$($cfg.BIN)/gc"
     }
 
     Write-Host "Cleaning jobs completed successfully." -ForegroundColor Green

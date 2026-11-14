@@ -6,7 +6,9 @@ function Install-cbuild() {
         [bool]$runWin,
         [bool]$runLnx,
         [bool]$runWeb,
-        [string[]]$lnxArchs = @("x86_64")
+        [string[]]$lnxArchs = @("x86_64"),
+
+        [bool]$runGC
     )
     if ($all) {
         # Get build config
@@ -19,6 +21,10 @@ function Install-cbuild() {
         }
         if ($cfg.PLATFORMS -contains "webp") {
             $runWeb = $true
+        }
+
+        if ($cfg.PLATFORMS -contains "gc") {
+            $RunGC = $true
         }
 
         $lnxArchs = @()
@@ -41,26 +47,36 @@ function Install-cbuild() {
     }
 
     # Install basic cbuild profile
-    Install-cbuilddir -force $force -runOthers ($runCal -or $runWin -or $runLnx)
+    Install-cbuilddir -force $force -runOthers ($runCal -or $runWin -or $runLnx -or $runWeb -or $runGc)
 
     # Install calculator profile
     if ($runCal) {
+        Write-Host ">>> Installing calculator dependencies..."
         Install-cbuildCalculator
     }
 
     # Install windows profile
     if ($runWin) {
+        Write-Host ">>> Installing Windows dependencies..."
         Install-cbuildWindows
     }
 
     # Install linux profile
     if ($runLnx) {
+        Write-Host ">>> Installing Linux dependencies..."
         Install-cbuildLinux -lnxArchs $lnxArchs
     }
 
     # Install Webp profile
     if ($runWeb) {
+        Write-Host ">>> Installing Webpage dependencies..."
         Install-CBuildWebp
+    }
+
+    # Install GameCube profile
+    if ($runGC) {
+        Write-Host ">>> Installing GameCube dependencies..."
+        Install-CBuildGameCube
     }
 
     Write-Host "cbuild installed successfully." -ForegroundColor Green
@@ -195,6 +211,75 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
 
+    # --- gc_shim ---
+    # directories
+    $gcShimDir = Join-Path $InstallDir "gc_shim"
+    New-Item -ItemType Directory `
+        -Path $gcShimDir -Force | Out-Null
+    $gcIncludeDir = Join-Path $gcShimDir "include"
+    New-Item -ItemType Directory `
+        -Path $gcIncludeDir -Force | Out-Null
+    $gcSrcDir = Join-Path $gcShimDir "src"
+    New-Item -ItemType Directory `
+        -Path $gcSrcDir -Force | Out-Null
+
+    # Generate files from the embedded source.
+    Set-Content `
+        -LiteralPath (Join-Path $gcIncludeDir "fileioc.h") `
+        -Value @'
+<gc_shim/include/fileioc.h>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $gcIncludeDir "graphx.h") `
+        -Value @'
+<gc_shim/include/graphx.h>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $gcIncludeDir "keypadc.h") `
+        -Value @'
+<gc_shim/include/keypadc.h>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $gcIncludeDir "SDL.h") `
+        -Value @'
+<gc_shim/include/SDL.h>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $gcIncludeDir "tice.h") `
+        -Value @'
+<gc_shim/include/tice.h>
+'@ `
+        -Encoding utf8
+
+    Set-Content `
+        -LiteralPath (Join-Path $gcSrcDir "fileioc.c") `
+        -Value @'
+<gc_shim/src/fileioc.c>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $gcSrcDir "graphx.c") `
+        -Value @'
+<gc_shim/src/graphx.c>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $gcSrcDir "keypadc.c") `
+        -Value @'
+<gc_shim/src/keypadc.c>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $gcSrcDir "sdl_compat.c") `
+        -Value @'
+<gc_shim/src/sdl_compat.c>
+'@ `
+        -Encoding utf8
+
     # --- web_shim ---
     # directories
     $webShimDir = Join-Path $InstallDir "web_shim"
@@ -251,6 +336,12 @@ function Install-cbuilddir() {
         -LiteralPath (Join-Path $makefileDir "toolchain-armhf.cmake") `
         -Value @'
 <toolchains/toolchain-armhf.cmake>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $makefileDir "toolchain-gc.cmake") `
+        -Value @'
+<toolchains/toolchain-gc.cmake>
 '@ `
         -Encoding utf8
 
@@ -574,4 +665,176 @@ fi
     # Final check
     & wsl.exe -- bash -lc 'source ~/emsdk/emsdk_env.sh >/dev/null 2>&1 && emcc --version'
     if ($LASTEXITCODE -ne 0) { throw "emcc is not working after install." }
+}
+
+
+
+function Install-CBuildGameCube {
+    $image = "devkitpro/devkitppc:20261102"
+
+    # --------------------------------------------------
+    # 1. Check for Docker
+    # --------------------------------------------------
+
+    $docker = Get-Command docker -ErrorAction SilentlyContinue
+
+    if (-not $docker) {
+        Write-Host "Docker was not found. Installing Docker Desktop..."
+
+        # Check for Windows Package Manager
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+
+        if (-not $winget) {
+            throw @"
+Windows Package Manager (winget) was not found.
+
+Install Microsoft's App Installer:
+https://aka.ms/getwinget
+
+Then restart PowerShell and run:
+    cbuild install -gc
+"@
+        }
+
+        # Install Docker Desktop
+        & winget install `
+            --exact `
+            --id Docker.DockerDesktop `
+            --silent `
+            --accept-package-agreements `
+            --accept-source-agreements
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Docker Desktop installation failed (exit code $LASTEXITCODE)."
+        }
+
+        Write-Host "Docker Desktop installation completed."
+    }
+    else {
+        Write-Host "Docker is already installed."
+    }
+
+    # --------------------------------------------------
+    # 2. Refresh PATH
+    # --------------------------------------------------
+
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+
+    $env:Path = "$machinePath;$userPath"
+
+    # Check common Docker CLI locations
+    $dockerPaths = @(
+        "$env:ProgramFiles\Docker\Docker\resources\bin\docker.exe",
+        "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin\docker.exe"
+    )
+
+    $docker = Get-Command docker -ErrorAction SilentlyContinue
+
+    if (-not $docker) {
+        foreach ($path in $dockerPaths) {
+            if (Test-Path -LiteralPath $path) {
+                $env:Path = "$(Split-Path $path -Parent);$env:Path"
+                break
+            }
+        }
+    }
+
+    $docker = Get-Command docker -ErrorAction SilentlyContinue
+
+    if (-not $docker) {
+        throw @"
+Docker Desktop was installed, but docker.exe could not be located.
+
+Restart PowerShell and run:
+    cbuild install -gc
+"@
+    }
+
+    # --------------------------------------------------
+    # 3. Start Docker Desktop
+    # --------------------------------------------------
+
+    Write-Host "`nChecking Docker Desktop..."
+
+    $desktopPaths = @(
+        "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+        "$env:LOCALAPPDATA\Programs\DockerDesktop\Docker Desktop.exe"
+    )
+
+    $desktop = $desktopPaths |
+        Where-Object { Test-Path -LiteralPath $_ } |
+        Select-Object -First 1
+
+    if ($desktop) {
+        $running = Get-Process -Name "Docker Desktop" `
+            -ErrorAction SilentlyContinue
+
+        if (-not $running) {
+            Write-Host "Starting Docker Desktop..."
+            Start-Process -FilePath $desktop
+        }
+    }
+
+    # --------------------------------------------------
+    # 4. Wait for Docker engine
+    # --------------------------------------------------
+
+    Write-Host "Waiting for Docker engine..."
+
+    $ready = $false
+
+    for ($i = 0; $i -lt 36; $i++) {
+        & docker info --format '{{.ServerVersion}}' 2>$null |
+            Out-Null
+
+        if ($LASTEXITCODE -eq 0) {
+            $ready = $true
+            break
+        }
+
+        Start-Sleep -Seconds 5
+    }
+
+    if (-not $ready) {
+        throw @"
+Docker Desktop is installed, but its engine did not become ready.
+
+Open Docker Desktop manually, accept its first-run agreement
+if prompted, and wait for the engine to start.
+
+Then run:
+    cbuild install -gc
+"@
+    }
+
+    Write-Host "Docker engine is ready." -ForegroundColor Green
+
+    # --------------------------------------------------
+    # 5. Pull devkitPro image
+    # --------------------------------------------------
+
+    Write-Host "`nPulling devkitPro GameCube toolchain..."
+    Write-Host "Image: $image"
+
+    & docker pull $image
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to download the devkitPro Docker image."
+    }
+
+    # --------------------------------------------------
+    # 6. Verify toolchain
+    # --------------------------------------------------
+
+    Write-Host "`nVerifying GameCube toolchain..."
+
+    & docker run --rm `
+        --entrypoint bash `
+        $image `
+        -c 'export PATH="$DEVKITPPC/bin:$PATH"; set -e; command -v powerpc-eabi-gcc; powerpc-eabi-gcc --version; test -f "$DEVKITPRO/cmake/GameCube.cmake"; test -d "$DEVKITPRO/libogc/include"; cmake --version; ninja --version'
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "The devkitPro Docker image failed toolchain verification."
+    }
 }

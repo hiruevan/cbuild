@@ -1,5 +1,5 @@
 #define PAD_MAX               4
-#define PAD_STICK_THRESHOLD   16000   /* of 32767 */
+#define PAD_STICK_THRESHOLD   10000   /* of 32767 */
 #define PAD_TRIGGER_THRESHOLD 8000
 
 static SDL_GameController *_pads[PAD_MAX];

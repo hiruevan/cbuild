@@ -12,7 +12,7 @@ function Invoke-cbuildexport() {
 
     $bin     = $cfg.BIN
     $export  = $cfg.EXPORT
-    $extensions = @(".8xp", ".8xv", ".exe", ".elf", ".html")
+    $extensions = @(".8xp", ".8xv", ".exe", ".elf", ".html", ".dol", ".nkit.iso")
 
     New-Item -ItemType Directory -Path $export -Force | Out-Null
 
@@ -57,6 +57,14 @@ function Invoke-cbuildexport() {
             Write-Host "    $n file(s) exported." -ForegroundColor Green
         }
     }
+
+    if ($runGC) {
+        Write-Host "`n>>> Exporting GameCube binaries..."
+        $n = Copy-FilteredFiles -Source (Join-Path $bin "gc") `
+                                -Destination (Join-Path $export "gc") `
+                                -Extensions $extensions
+        Write-Host "    $n file(s) exported." -ForegroundColor Green
+    }
 }
 
 function Copy-FilteredFiles {
@@ -76,7 +84,10 @@ function Copy-FilteredFiles {
     $count = 0
 
     Get-ChildItem -LiteralPath $root -Recurse -File |
-        Where-Object { $Extensions -contains $_.Extension.ToLower() } |
+        Where-Object {
+            $n = $_.Name.ToLower()
+            @($Extensions | Where-Object { $n.EndsWith($_) }).Count -gt 0
+        } |
         ForEach-Object {
             $relativePath = $_.FullName.Substring($root.Length).TrimStart('\')
             $targetPath   = Join-Path $Destination $relativePath

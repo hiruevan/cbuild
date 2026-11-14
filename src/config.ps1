@@ -45,7 +45,7 @@ function Read-CBuildConfig {
     if ($cfg["PLATFORMS"].Count -eq 0) { $cfg["PLATFORMS"] = @("cal", "win", "lnx")}
 
     # Validate platforms
-    $valid = @("cal", "win", "lnx", "lnx-x86_64", "lnx-aarch64", "lnx-armhf", "webp")
+    $valid = @("cal", "win", "lnx", "lnx-x86_64", "lnx-aarch64", "lnx-armhf", "webp", "gc")
     $bad = $platforms | Where-Object { $valid -notcontains $_ }
     if ($bad) { throw "Project.mk has unknown PLATFORMS: $($bad -join ', ')" }
 
@@ -68,7 +68,7 @@ function New-CBuildFile {
 
     $text = Get-Content -LiteralPath $Template -Raw
 
-    $text = $text.Replace("CNAME", $Config.NAME).
+        $text = $text.Replace("CNAME", $Config.NAME).
                   Replace("CDESC", $Config.DESCRIPTION).
                   Replace("CTAR",  $Config.TARGET).
                   Replace("CBINDIR", $Config.BIN).
@@ -78,7 +78,8 @@ function New-CBuildFile {
                   Replace("CINCDIR", $Config.INCLUDE).
                   Replace("CSRCFILES", $Config.SRC).
                   Replace("CICON", $Config.ICON).
-                  Replace("desk_shim/", "$Shim/")
+                  Replace("desk_shim/", "$Shim/").
+                  Replace("gc_shim/", "$Shim/")
 
     $dest = Join-Path $PWD.Path $Destination
     [System.IO.File]::WriteAllText($dest, $text, (New-Object System.Text.UTF8Encoding $false))

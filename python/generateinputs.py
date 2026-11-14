@@ -1,4 +1,3 @@
-
 import re
 import sys
 
@@ -22,7 +21,12 @@ PLATFORMS = {
     "lnx-x86_64": ["KEYBOARD", "GAMEPAD"],
     "lnx-aarch64": ["KEYBOARD", "GAMEPAD"],
     "lnx-armhf": ["KEYBOARD", "GAMEPAD"],
-    "webp": ["KEYBOARD", "GAMEPAD"],
+    "webp": ["KEYBOARD", "GAMEPAD", "MOBILE"],
+    
+    "gc": ["GAMEPAD"],
+
+    # To be implemented
+    "mac": ["KEYBOARD", "GAMEPAD"],
     "android": ["MOBILE"],
     "ios": ["MOBILE"],
 }
@@ -124,6 +128,80 @@ BACKENDS = {
 # Configuration parser
 # --------------------------------------------------
 
+def check_platform(name, number=None):
+    if name not in PLATFORMS:
+        fail(
+            f"Unknown platform '{name}'. Expected one of: "
+            + ", ".join(sorted(PLATFORMS)) + ".",
+            number,
+        )
+
+
+def parse_quoted(value, number=None):
+    if not (len(value) >= 2 and value[0] == '"' and value[-1] == '"'):
+        fail(".name must be enclosed in quotes.", number)
+
+    return value[1:-1]
+
+
+def parse_bindings(raw, number=None):
+    bindings = [item.strip() for item in raw.split(",")]
+
+    if not bindings or any(not item for item in bindings):
+        fail("Invalid empty binding.", number)
+
+    if "NONE" in bindings and len(bindings) != 1:
+        fail("NONE cannot be combined with other bindings.", number)
+
+    return bindings
+
+
+def platform_matches(key, platform):
+    """A key applies to its own platform and to platform variants
+    (e.g. '.lnx' also covers 'lnx-x86_64')."""
+    return platform == key or platform.startswith(key + "-")
+
+
+def pick_override(table, platform):
+    if platform in table:
+        return table[platform]
+
+    for key, value in table.items():
+        if platform_matches(key, platform):
+            return value
+
+    return None
+
+
+def resolve_blocks(blocks, platform):
+    """Apply the per-platform overrides, leaving plain name/bindings/pos."""
+    resolved = {}
+
+    for block, actions in blocks.items():
+        resolved[block] = {}
+
+        for action, data in actions.items():
+            item = {
+                "bindings": pick_override(data["overrides"], platform)
+                            or data["bindings"],
+            }
+
+            name = pick_override(data["names"], platform)
+
+            if name is None:
+                name = data.get("name")
+
+            if name is not None:
+                item["name"] = name
+
+            if "pos" in data:
+                item["pos"] = data["pos"]
+
+            resolved[block][action] = item
+
+    return resolved
+
+
 def parse_config(path):
     with open(path, "r", encoding="utf-8-sig") as file:
         lines = file.readlines()
@@ -198,28 +276,49 @@ def parse_config(path):
                 fail("Property has no preceding action.", number)
 
             match = re.fullmatch(
-                r"\.(name|pos)\s*=\s*(.+)",
+                r"\.([A-Za-z_][\w-]*)(?:\.([A-Za-z_][\w-]*))?\s*=\s*(.+)",
                 line,
             )
 
             if not match:
                 fail(f"Invalid property '{line}'.", number)
 
-            prop, value = match.groups()
+            prop, target, value = match.groups()
+            value = value.strip()
             action = blocks[current_block][current_action]
+
+            # Per-platform overrides:
+            #   .name.<platform> = "text"     display name on that platform
+            #   .<platform> = Binding, ...    bindings on that platform
+            if prop == "name" and target:
+                check_platform(target, number)
+
+                if target in action["names"]:
+                    fail(f"Duplicate property '.name.{target}'.", number)
+
+                action["names"][target] = parse_quoted(value, number)
+                continue
+
+            if prop not in ("name", "pos"):
+                if target:
+                    fail(f"Invalid property '{line}'.", number)
+
+                check_platform(prop, number)
+
+                if prop in action["overrides"]:
+                    fail(f"Duplicate property '.{prop}'.", number)
+
+                action["overrides"][prop] = parse_bindings(value, number)
+                continue
+
+            if target:
+                fail(f".pos cannot be set per platform.", number)
 
             if prop in action:
                 fail(f"Duplicate property '{prop}'.", number)
 
             if prop == "name":
-                if not (
-                    len(value) >= 2
-                    and value[0] == '"'
-                    and value[-1] == '"'
-                ):
-                    fail(".name must be enclosed in quotes.", number)
-
-                action["name"] = value[1:-1]
+                action["name"] = parse_quoted(value, number)
 
             elif prop == "pos":
                 match = re.fullmatch(
@@ -260,22 +359,12 @@ def parse_config(path):
                 number,
             )
 
-        bindings = [
-            item.strip()
-            for item in raw_bindings.split(",")
-        ]
-
-        if not bindings or any(not item for item in bindings):
-            fail("Invalid empty binding.", number)
-
-        if "NONE" in bindings and len(bindings) != 1:
-            fail(
-                "NONE cannot be combined with other bindings.",
-                number,
-            )
+        bindings = parse_bindings(raw_bindings, number)
 
         blocks[current_block][action_name] = {
-            "bindings": bindings
+            "bindings": bindings,
+            "names": {},
+            "overrides": {},
         }
 
         current_action = action_name
@@ -726,6 +815,7 @@ def generate_platform(platform, definitions, blocks, output_dir):
     if platform not in PLATFORMS:
         fail(f"Unsupported platform '{platform}'.")
 
+    blocks = resolve_blocks(blocks, platform)
     implemented = []
 
     for name in PLATFORMS[platform]:

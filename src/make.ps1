@@ -13,7 +13,9 @@ function Invoke-cbuildmake() {
         [bool]$runWin,
         [bool]$runWeb,
         [bool]$runLnx,
-        [string[]]$lnxArchs = @("x86_64")
+        [string[]]$lnxArchs = @("x86_64"),
+
+        [bool]$runGC
     )
     # Get build config
     $cfg = Read-CBuildConfig
@@ -27,6 +29,10 @@ function Invoke-cbuildmake() {
         }
         if ($cfg.PLATFORMS -contains "webp") {
             $runWeb = $true
+        }
+
+        if ($cfg.PLATFORMS -contains "gc") {
+            $RunGC = $true
         }
 
         $lnxArchs = @()
@@ -82,6 +88,7 @@ function Invoke-cbuildmake() {
             if (Test-Path -LiteralPath $launcher -PathType Leaf) {
                 Move-Item -LiteralPath $launcher -Destination "$launcher.8xp" -Force
             }
+            Write-Host ">>> Completed calculator build."
         }
         
     }
@@ -127,6 +134,7 @@ function Invoke-cbuildmake() {
         finally {
             # Clean up
             Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force -ErrorAction SilentlyContinue
+            Write-Host ">>> Completed Windows build."
         }
     }
 
@@ -187,6 +195,7 @@ function Invoke-cbuildmake() {
         finally {
             # clean up
             Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force -ErrorAction SilentlyContinue
+            Write-Host ">>> Completed Webpage build."
         }
     }
 
@@ -239,8 +248,103 @@ function Invoke-cbuildmake() {
         }
         finally {
             Remove-Item -Path (Join-Path $PWD.Path "CMakeLists.txt") -Force -ErrorAction SilentlyContinue
+            Write-Host ">>> Completed Linux build(s)."
         }
     }
+
+    
+    
+    # Build GameCube
+    if ($runGC) {
+        Write-Host "`n>>> Begining GameCube build..."
+        $image = "devkitpro/devkitppc:20261102"
+
+        $projectRoot = (Get-Location).Path
+        $cbuildRoot = Join-Path $HOME "cbuild"
+        $gcShimRoot = Join-Path $cbuildRoot "gc_shim"
+
+        if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+            throw "Docker was not found. Run 'cbuild install -gc'."
+        }
+
+        if (-not (Test-Path $cbuildRoot -PathType Container)) {
+            throw "cbuild directory not found: $cbuildRoot"
+        }
+
+        if (-not (Test-Path $gcShimRoot -PathType Container)) {
+            throw "GameCube compatibility layer not found: $gcShimRoot"
+        }
+
+        # Verify the Docker toolchain.
+        & docker run --rm --entrypoint bash $image -c `
+            'export PATH="$DEVKITPPC/bin:$DEVKITPRO/tools/bin:$PATH"; command -v powerpc-eabi-gcc'
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "GameCube toolchain not found. Run 'cbuild install -gc'."
+        }
+
+        $buildDir = Join-Path $cfg.BUILD "gc"
+        $cmakeBuildDir = Join-Path $buildDir "cmake"
+        $cmakeBuildDirContainer = "/src/$($cfg.BUILD.Replace('\','/'))/gc/cmake"
+
+        Write-Host ">>> Generating GameCube resources..."
+        Invoke-CBuildResources -Cfg $cfg -OutDir $buildDir
+
+        # The cbuild installation is mounted at /cbuild in Docker.
+        $dockerShim = "/cbuild/gc_shim"
+
+        Write-Host ">>> Configuring GameCube build..."
+        New-CBuildFile `
+            (Join-Path $script:CBuildToolchainDir "toolchain-gc.cmake") `
+            "CMakeLists.txt" `
+            $cfg `
+            -Shim $dockerShim
+
+        try {
+            Write-Host ">>> Building GameCube target..."
+
+            # Ensure the CMake build directory is clean.
+            Remove-Item $cmakeBuildDir -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Path $cmakeBuildDir -Force | Out-Null
+
+            $containerScript = @"
+export PATH="`$DEVKITPPC/bin:`$DEVKITPRO/portlibs/ppc/bin:`$DEVKITPRO/portlibs/gamecube/bin:`$DEVKITPRO/tools/bin:`$PATH"
+
+cmake -S /src -B $cmakeBuildDirContainer -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/GameCube.cmake &&
+cmake --build $cmakeBuildDirContainer --parallel
+"@
+
+            # Here-strings use CRLF on Windows; bash chokes on the \r, so normalise to LF.
+            $containerScript = $containerScript -replace "`r`n", "`n"
+
+            $dockerArgs = @(
+                "run",
+                "--rm",
+                "--mount", "type=bind,source=$projectRoot,target=/src",
+                "--mount", "type=bind,source=$cbuildRoot,target=/cbuild,readonly",
+                "--workdir", "/src",
+                "--env", "DEVKITPRO=/opt/devkitpro",
+                "--env", "DEVKITPPC=/opt/devkitpro/devkitPPC",
+                "--env", "PATH=/opt/devkitpro/devkitPPC/bin:/opt/devkitpro/portlibs/ppc/bin:/opt/devkitpro/portlibs/gamecube/bin:/opt/devkitpro/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                $image,
+                "bash",
+                "-c",
+                $containerScript
+            )
+
+            & docker @dockerArgs
+
+            if ($LASTEXITCODE -ne 0) {
+                throw "GameCube build failed: exit code $LASTEXITCODE."
+            }
+        }
+        finally {
+            Remove-Item "CMakeLists.txt" -Force -ErrorAction SilentlyContinue
+        }
+    }
+
 
     Write-Host "All build jobs completed successfully." -ForegroundColor Green
 }
