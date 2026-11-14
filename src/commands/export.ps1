@@ -5,14 +5,16 @@ function Invoke-cbuildexport() {
         [bool]$runWin,
         [bool]$runWeb,
         [bool]$runLnx,
-        [string[]]$lnxArchs = @("x86_64")
+        [string[]]$lnxArchs = @("x86_64"),
+
+        [bool]$runGC
     )
     # Get build config
     $cfg = Read-CBuildConfig
 
     $bin     = $cfg.BIN
     $export  = $cfg.EXPORT
-    $extensions = @(".8xp", ".8xv", ".exe", ".elf", ".html", ".dol", ".nkit.iso")
+    $extensions = @(".8xp", ".8xv", ".exe", ".elf", ".html", ".dol")
 
     New-Item -ItemType Directory -Path $export -Force | Out-Null
 
