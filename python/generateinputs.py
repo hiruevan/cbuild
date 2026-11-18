@@ -100,9 +100,10 @@ BACKENDS = {
 
     "KEYBOARD": Backend(
         block="KEYBOARD",
-        includes='#include <SDL.h>\n#include "keypadc.h"',
+        includes='#include <SDL.h>\n#include <stdlib.h>',
         scan_prologue=(
-            "    kb_Scan();\n"
+            "    SDL_Event _e;\n"
+            "    while (SDL_PollEvent(&_e)) { if (_e.type == SDL_QUIT) exit(0); }\n"
             "    const Uint8 *keyboard = SDL_GetKeyboardState(NULL);"
         ),
         key_to_expr=lambda b: f"keyboard[{keyboard_key(b)}]",
@@ -593,8 +594,8 @@ def render_source(definitions, blocks, backends):
             if line.strip() and line not in include_lines:
                 include_lines.append(line)
 
-    if any(b.prompt for b in backends) and "#include <graphx.h>" not in include_lines:
-            include_lines.append("#include <graphx.h>")
+    if any(b.prompt for b in backends) and "#include <graphics.h>" not in include_lines:
+            include_lines.append("#include <graphics.h>")
 
     includes = "\n".join(include_lines)
 

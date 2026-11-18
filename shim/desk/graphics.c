@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "graphx.h"
+#include "graphics.h"
 #include "ce_internal.h"
 
 #define W GFX_LCD_WIDTH

@@ -37,9 +37,8 @@ if(NOT EMSCRIPTEN)
 endif()
 
 add_library(ce_shim STATIC
-    desk_shim/src/graphx.c
-    desk_shim/src/keypadc.c
-    desk_shim/src/fileioc.c
+    shim/desk/graphics.c
+    shim/desk/files.c
 )
 
 target_compile_definitions(ce_shim PRIVATE
@@ -48,11 +47,11 @@ target_compile_definitions(ce_shim PRIVATE
 )
 
 target_include_directories(ce_shim PUBLIC
-    desk_shim/include
+    shim/include
 )
 
 target_include_directories(ce_shim PRIVATE
-    desk_shim/src
+    shim/desk
 )
 
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/CINCDIR"

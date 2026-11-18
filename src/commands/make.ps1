@@ -147,7 +147,7 @@ function Invoke-cbuildmake() {
         & wsl.exe -- bash -lc 'test -x ~/emsdk/upstream/emscripten/emcc'
         if ($LASTEXITCODE -ne 0) { throw "Emscripten not found. Run 'cbuild install -webp'." }
 
-        $winShim   = Join-Path $HOME "cbuild/desk_shim"
+        $winShim   = Join-Path $HOME "cbuild/shim"
         $linuxShim = (& wsl.exe wslpath -a ($winShim.Replace('\', '/'))).Trim()
 
         $buildDir = "$($cfg.BUILD)/webp"
@@ -161,7 +161,7 @@ function Invoke-cbuildmake() {
         New-CBuildFile (Join-Path $script:CBuildToolchainDir "toolchain-desk.cmake") "CMakeLists.txt" $cfg -Shim $linuxShim
 
         # Generates shell.html
-        $text = Get-Content -LiteralPath (Join-Path $script:CBuildInstallDir "web_shim\shell.html") -Raw
+        $text = Get-Content -LiteralPath (Join-Path $script:CBuildInstallDir "shim\web\shell.html") -Raw
 
         $iconPath = Join-Path $PWD.Path (Join-Path $cfg.RESOURCES $cfg.ICON)
         $link = ''
@@ -170,7 +170,7 @@ function Invoke-cbuildmake() {
             $link = '<link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,' + $b64 + '">'
         }
 
-        $webDir = Join-Path $script:CBuildInstallDir "web_shim"
+        $webDir = Join-Path $script:CBuildInstallDir "shim\web"
         $text = Get-Content -LiteralPath (Join-Path $webDir "shell.html") -Raw
         $css  = Get-Content -LiteralPath (Join-Path $webDir "style.css")  -Raw
         $js   = Get-Content -LiteralPath (Join-Path $webDir "module.js")  -Raw
@@ -205,7 +205,7 @@ function Invoke-cbuildmake() {
         if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
             throw "WSL not found. Run 'cbuild install -lnx'"
         }
-        $winShim   = Join-Path $HOME "cbuild/desk_shim"
+        $winShim   = Join-Path $HOME "cbuild/shim"
         $linuxShim = (& wsl.exe wslpath -a ($winShim.Replace('\', '/'))).Trim()
 
         # The template is identical for every architecture, so generate it once
@@ -261,7 +261,7 @@ function Invoke-cbuildmake() {
 
         $projectRoot = (Get-Location).Path
         $cbuildRoot = Join-Path $HOME "cbuild"
-        $gcShimRoot = Join-Path $cbuildRoot "gc_shim"
+        $gcShimRoot = Join-Path $cbuildRoot "shim/gc"
 
         if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
             throw "Docker was not found. Run 'cbuild install -gc'."
@@ -291,7 +291,7 @@ function Invoke-cbuildmake() {
         Invoke-CBuildResources -Cfg $cfg -OutDir $buildDir
 
         # The cbuild installation is mounted at /cbuild in Docker.
-        $dockerShim = "/cbuild/gc_shim"
+        $dockerShim = "/cbuild/shim"
 
         Write-Host ">>> Configuring GameCube build..."
         New-CBuildFile `

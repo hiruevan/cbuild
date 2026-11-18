@@ -2,8 +2,7 @@
 
 CBUILD
     - makefiles
-    # - calc_shim
-    - desk_shim
+    - shim
     - python
 
 PYTHON
@@ -30,3 +29,10 @@ LINUX
     - x86_64
     - aarch64
     - armhf
+
+PLATFORMS
+    - Windows
+    - Linux
+    - TI 84 CE Calculator
+    - Webpage
+    - GameCube (Dolphin)

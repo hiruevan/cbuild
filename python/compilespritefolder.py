@@ -23,7 +23,7 @@ def write_header(sprites, h_path):
         f.write(f"""
                 
 #pragma once
-#include <graphx.h>
+#include <graphics.h>
 #include <stdint.h>
 
 """)

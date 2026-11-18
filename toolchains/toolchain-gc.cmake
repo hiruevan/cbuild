@@ -39,14 +39,14 @@ list(APPEND PROJECT_SOURCES "${MAIN_SOURCE}")
 list(REMOVE_DUPLICATES PROJECT_SOURCES)
 
 add_library(ce_shim STATIC
-    gc_shim/src/graphx.c
-    gc_shim/src/keypadc.c
-    gc_shim/src/fileioc.c
-    gc_shim/src/sdl_compat.c
+    shim/gc/graphics.c
+    shim/gc/files.c
+    shim/gc/sdl_compat.c
 )
 
 target_include_directories(ce_shim PUBLIC
-    gc_shim/include
+    shim/include
+    shim/gc
 )
 
 target_link_libraries(ce_shim PUBLIC

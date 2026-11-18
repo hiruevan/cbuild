@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "fileioc.h"
+#include "files.h"
 
 #define MAX_SLOTS 6
 

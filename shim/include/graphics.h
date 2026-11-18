@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <tice.h>
+#include <random.h>
 
 #ifdef __cplusplus
 extern "C" {

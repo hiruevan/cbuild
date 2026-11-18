@@ -19,7 +19,7 @@
 #include <ogc/gu.h>
 #include <ogc/cache.h>
 #include <ogc/color.h>
-#include "graphx.h"
+#include "graphics.h"
 
 #define LCD_W GFX_LCD_WIDTH
 #define LCD_H GFX_LCD_HEIGHT

@@ -40,6 +40,7 @@ function Read-CBuildConfig {
     if (-not $cfg["SRCDIR"])      { $cfg["SRCDIR"]      = "src" }
     if (-not $cfg["INCLUDE"])     { $cfg["INCLUDE"]     = "include" }
     if (-not $cfg["RESOURCES"])   { $cfg["RESOURCES"]   = "resources" }
+    if (-not $cfg["KEYBINDS"])    { $cfg["KEYBINDS"]    = "keybinds.cfg" }
     if (-not $cfg["SRC"])         { $cfg["SRC"]         = "main.c" }
     if (-not $cfg["ICON"])        { $cfg["ICON"]        = "icon.ico" }
     if ($cfg["PLATFORMS"].Count -eq 0) { $cfg["PLATFORMS"] = @("cal", "win", "lnx")}
@@ -63,7 +64,7 @@ function New-CBuildFile {
         [string]$Template,
         [string]$Destination,
         [hashtable]$Config,
-        [string]$Shim = (Join-Path $HOME "cbuild/desk_shim").Replace('\', '/')
+        [string]$Shim = (Join-Path $HOME "cbuild/shim").Replace('\', '/')
     )
 
     $text = Get-Content -LiteralPath $Template -Raw
@@ -78,8 +79,7 @@ function New-CBuildFile {
                   Replace("CINCDIR", $Config.INCLUDE).
                   Replace("CSRCFILES", $Config.SRC).
                   Replace("CICON", $Config.ICON).
-                  Replace("desk_shim/", "$Shim/").
-                  Replace("gc_shim/", "$Shim/")
+                  Replace("shim/", "$Shim/")
 
     $dest = Join-Path $PWD.Path $Destination
     [System.IO.File]::WriteAllText($dest, $text, (New-Object System.Text.UTF8Encoding $false))

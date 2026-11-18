@@ -148,162 +148,139 @@ function Install-cbuilddir() {
 
     # --- desk_shim ---
     # directories
-    $deskShimDir = Join-Path $InstallDir "desk_shim"
+    $shimDir = Join-Path $InstallDir "shim"
     New-Item -ItemType Directory `
-        -Path $deskShimDir -Force | Out-Null
-    $includeDir = Join-Path $deskShimDir "include"
+        -Path $shimDir -Force | Out-Null
+    $includeDir = Join-Path $shimDir "include"
     New-Item -ItemType Directory `
         -Path $includeDir -Force | Out-Null
-    $srcDir = Join-Path $deskShimDir "src"
+    $deskDir = Join-Path $shimDir "desk"
     New-Item -ItemType Directory `
-        -Path $srcDir -Force | Out-Null
+        -Path $deskDir -Force | Out-Null
 
     # Generate files from the embedded source.
     # include
     Set-Content `
-        -LiteralPath (Join-Path $includeDir "fileioc.h") `
+        -LiteralPath (Join-Path $includeDir "files.h") `
         -Value @'
-<desk_shim/include/fileioc.h>
+<shim/include/files.h>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $includeDir "graphx.h") `
+        -LiteralPath (Join-Path $includeDir "graphics.h") `
         -Value @'
-<desk_shim/include/graphx.h>
+<shim/include/graphics.h>
 '@ `
         -Encoding utf8
+
     Set-Content `
-        -LiteralPath (Join-Path $includeDir "keypadc.h") `
+        -LiteralPath (Join-Path $includeDir "random.h") `
         -Value @'
-<desk_shim/include/keypadc.h>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $includeDir "tice.h") `
-        -Value @'
-<desk_shim/include/tice.h>
+<shim/include/random.h>
 '@ `
         -Encoding utf8
 
     # src
     Set-Content `
-        -LiteralPath (Join-Path $srcDir "ce_internal.h") `
+        -LiteralPath (Join-Path $deskDir "ce_internal.h") `
         -Value @'
-<desk_shim/src/ce_internal.h>
+<shim/desk/ce_internal.h>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $srcDir "fileioc.c") `
+        -LiteralPath (Join-Path $deskDir "files.c") `
         -Value @'
-<desk_shim/src/fileioc.c>
+<shim/desk/files.c>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $srcDir "graphx.c") `
+        -LiteralPath (Join-Path $deskDir "graphics.c") `
         -Value @'
-<desk_shim/src/graphx.c>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $srcDir "keypadc.c") `
-        -Value @'
-<desk_shim/src/keypadc.c>
+<shim/desk/graphics.c>
 '@ `
         -Encoding utf8
 
     # --- gc_shim ---
     # directories
-    $gcShimDir = Join-Path $InstallDir "gc_shim"
+    $gcDir = Join-Path $shimDir "gc"
     New-Item -ItemType Directory `
-        -Path $gcShimDir -Force | Out-Null
-    $gcIncludeDir = Join-Path $gcShimDir "include"
-    New-Item -ItemType Directory `
-        -Path $gcIncludeDir -Force | Out-Null
-    $gcSrcDir = Join-Path $gcShimDir "src"
-    New-Item -ItemType Directory `
-        -Path $gcSrcDir -Force | Out-Null
-
-    # Generate files from the embedded source.
-    Set-Content `
-        -LiteralPath (Join-Path $gcIncludeDir "fileioc.h") `
-        -Value @'
-<gc_shim/include/fileioc.h>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $gcIncludeDir "graphx.h") `
-        -Value @'
-<gc_shim/include/graphx.h>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $gcIncludeDir "keypadc.h") `
-        -Value @'
-<gc_shim/include/keypadc.h>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $gcIncludeDir "SDL.h") `
-        -Value @'
-<gc_shim/include/SDL.h>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $gcIncludeDir "tice.h") `
-        -Value @'
-<gc_shim/include/tice.h>
-'@ `
-        -Encoding utf8
+        -Path $gcDir -Force | Out-Null
 
     Set-Content `
-        -LiteralPath (Join-Path $gcSrcDir "fileioc.c") `
+        -LiteralPath (Join-Path $gcDir "SDL.h") `
         -Value @'
-<gc_shim/src/fileioc.c>
+<shim/gc/SDL.h>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $gcSrcDir "graphx.c") `
+        -LiteralPath (Join-Path $gcDir "files.c") `
         -Value @'
-<gc_shim/src/graphx.c>
+<shim/gc/files.c>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $gcSrcDir "keypadc.c") `
+        -LiteralPath (Join-Path $gcDir "graphics.c") `
         -Value @'
-<gc_shim/src/keypadc.c>
+<shim/gc/graphics.c>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $gcSrcDir "sdl_compat.c") `
+        -LiteralPath (Join-Path $gcDir "sdl_compat.c") `
         -Value @'
-<gc_shim/src/sdl_compat.c>
+<shim/gc/sdl_compat.c>
 '@ `
         -Encoding utf8
 
     # --- web_shim ---
     # directories
-    $webShimDir = Join-Path $InstallDir "web_shim"
+    $webDir = Join-Path $shimDir "web"
     New-Item -ItemType Directory `
-        -Path $webShimDir -Force | Out-Null
+        -Path $webDir -Force | Out-Null
 
     # Generate files from the embedded source.
     Set-Content `
-        -LiteralPath (Join-Path $webShimDir "shell.html") `
+        -LiteralPath (Join-Path $webDir "shell.html") `
         -Value @'
-<web_shim/shell.html>
+<shim/web/shell.html>
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $webShimDir "style.css") `
+        -LiteralPath (Join-Path $webDir "style.css") `
         -Value @'
-<web_shim/style.css>
+<shim/web/style.css>
 '@ `
         -Encoding utf8
 
     Set-Content `
-        -LiteralPath (Join-Path $webShimDir "module.js") `
+        -LiteralPath (Join-Path $webDir "module.js") `
         -Value @'
-<web_shim/module.js>
+<shim/web/module.js>
+'@ `
+        -Encoding utf8
+
+    # --- calc_shim ---
+    # directories
+    $calDir = Join-Path $shimDir "calc"
+    New-Item -ItemType Directory `
+        -Path $calDir -Force | Out-Null
+
+    # Generate files from the embedded source.
+    Set-Content `
+        -LiteralPath (Join-Path $calDir "files.c") `
+        -Value @'
+<shim/calc/files.c>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $calDir "graphics.c") `
+        -Value @'
+<shim/calc/graphics.c>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $calDir "random.c") `
+        -Value @'
+<shim/calc/random.c>
 '@ `
         -Encoding utf8
 

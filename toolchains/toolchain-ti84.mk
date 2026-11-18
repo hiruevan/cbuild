@@ -6,7 +6,7 @@ SRCDIR = CSRCDIR
 
 EXTRA_C_SOURCES += CBUILDDIR/cal/input.c
 
-CFLAGS = -Wall -Wextra -O2 -ICINCDIR -ICBUILDDIR/cal
+CFLAGS = -Wall -Wextra -O2 -ICINCDIR -ICBUILDDIR/cal -Ishim/calc
 LIBS = graphx keypadc fileioc tice
 
 BINDIR = CBINDIR/cal

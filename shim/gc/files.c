@@ -6,7 +6,7 @@
 #include <fat.h>
 #include <ogc/card.h>
 #include <sys/stat.h>
-#include "fileioc.h"
+#include "files.h"
 
 /*
  * Storage backends, tried in this order the first time a file is touched:
