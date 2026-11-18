@@ -1,6 +1,7 @@
 ﻿$script:CBuildCommands = @{
     install   = @{ Flags = 'cal','win','lnx','webp','gc','all','force'; Run = 'Install-cbuild';       NeedsInstall = $false }
     uninstall = @{ Flags = 'all','force';                               Run = 'Uninstall-cbuild';     NeedsInstall = $true  }
+    api       = @{ Flags = $null;                                       Run = 'Display-cbuildAPI';    NeedsInstall = $true  }
     new       = @{ Flags = 'platform','game','app';                     Run = 'Invoke-cbuildnew';     NeedsInstall = $true; NeedsProject = $false }
     make      = @{ Flags = 'cal','win','lnx','webp','gc','all';         Run = 'Invoke-cbuildmake';    NeedsInstall = $true; NeedsProject = $true }
     clean     = @{ Flags = 'cal','win','lnx','webp','gc','all';         Run = 'Invoke-cbuildclean';   NeedsInstall = $true; NeedsProject = $true }
@@ -90,6 +91,10 @@ function cbuild {
         if ($name -eq 'uninstall') {
             & $cmd.Run -Full $all -Force $flags.Contains('force')
         }
+        if ($name -eq 'api') {
+            & $cmd.Run
+        }
+
         else {
             $params = @{
                 all      = $all

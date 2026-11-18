@@ -2,7 +2,7 @@
 
 **cbuild** is a Windows PowerShell build helper for C projects targeting the TI-84 Plus CE calculator, Windows desktop, Linux desktop, and stand-alone Webpage output. It generates the appropriate Makefile, CMake project, or webpage output, builds the project, and organizes the outputs.
 
-Current source version: **1.10.9**.
+Current source version: **1.10.11**.
 
 | Target | Build environment | Output directory |
 |---|---|---|
@@ -181,7 +181,7 @@ cbuild -help
 
 ```
 
-The current source version is `1.10.9`.
+The current source version is `1.10.11`.
 
 ## Project setup
 
@@ -456,6 +456,7 @@ python "$HOME\python\generatetileset.py"
 | `cbuild install -lnx armhf` | Install Linux ARM hard-float cross-build dependencies |
 | `cbuild install -all` | Install toolchains selected by `PLATFORMS` |
 | `cbuild install -force` | Recreate the base cbuild installation |
+| `cbuild api` | Open an html page that displays all shim API (custom cbuild-specific libraries) |
 | `cbuild make -cal` | Build the calculator target |
 | `cbuild make -win` | Build the Windows desktop target |
 | `cbuild make -webp` | Build the stand-alone HTML target |
