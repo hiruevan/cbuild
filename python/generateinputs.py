@@ -68,7 +68,7 @@ PAD_AXIS_SIGN = {
     ("Neg", "Y"): "+1",
 }
 
-GAMEPAD_HELPERS = load_file("../templates/gamepad.c")
+GAMEPAD_HELPERS = load_file("../inputs/gamepad.c")
 
 # --------------------------------------------------
 # Backend definitions
@@ -86,7 +86,7 @@ class Backend:
     prompt: str = ""
     any_expr: str = ""
 
-PROMPT_COMMON = load_file("../templates/prompt_common.c")
+PROMPT_COMMON = load_file("../inputs/prompt_common.c")
 
 BACKENDS = {
     "CALCULATOR": Backend(
@@ -94,20 +94,33 @@ BACKENDS = {
         includes="#include <keypadc.h>",
         scan_prologue="    kb_Scan();",
         key_to_expr=lambda b: f"kb_IsDown({calculator_key(b)})",
-        prompt=load_file("../templates/prompt_calculator.c"),
+        prompt=load_file("../inputs/prompt_calculator.c"),
         any_expr="kb_AnyKey()"
     ),
 
     "KEYBOARD": Backend(
         block="KEYBOARD",
-        includes='#include <SDL.h>\n#include <stdlib.h>',
+        # ce_video_ready / ce_present_if_due live in shim/desk/graphics.c (the old kb_Scan used to call them)
+        includes=(
+            '#include <SDL.h>\n'
+            '#include <stdlib.h>\n'
+            'int ce_video_ready(void);\n'
+            'void ce_present_if_due(void);'
+        ),
         scan_prologue=(
-            "    SDL_Event _e;\n"
-            "    while (SDL_PollEvent(&_e)) { if (_e.type == SDL_QUIT) exit(0); }\n"
+            "    static int _quit_requested = 0, _quit_scans = 0;\n"
+            "    if (ce_video_ready()) {\n"
+            "        SDL_Event _e;\n"
+            "        while (SDL_PollEvent(&_e)) {\n"
+            "            if (_e.type == SDL_QUIT) _quit_requested = 1;\n"
+            "        }\n"
+            "        ce_present_if_due();\n"
+            "    }\n"
+            "    if (_quit_requested && ++_quit_scans > 180) { SDL_Quit(); exit(0); }\n"
             "    const Uint8 *keyboard = SDL_GetKeyboardState(NULL);"
         ),
         key_to_expr=lambda b: f"keyboard[{keyboard_key(b)}]",
-        prompt=load_file("../templates/prompt_keyboard.c"),
+        prompt=load_file("../inputs/prompt_keyboard.c"),
         any_expr="_keyboard_any()"
     ),
     "GAMEPAD": Backend(
@@ -119,7 +132,7 @@ BACKENDS = {
             "    SDL_GameControllerUpdate();"
         ),
         key_to_expr=lambda b: gamepad_key(b),
-        prompt=load_file("../templates/prompt_gamepad.c"),
+        prompt=load_file("../inputs/prompt_gamepad.c"),
         any_expr="_pad_any()"
     ),
 }
@@ -576,7 +589,7 @@ def render_header(definitions):
         for action in all_actions
     )
 
-    return load_template("input.h").substitute(
+    return load_input_template("input.h").substitute(
         action_fields=fields,
         action_count=len(all_actions),
     )
@@ -714,7 +727,7 @@ def render_source(definitions, blocks, backends):
         "    }"
     )
 
-    return load_template("input.c").substitute(
+    return load_input_template("input.c").substitute(
         includes=includes,
         action_inits=inits,
         device_support="\n\n".join(support),
@@ -746,17 +759,17 @@ def render_prompt(backends):
           "    const char *result = NULL;\n\n"
           "    if (maxChars <= 0 || maxChars > INPUT_PROMPT_MAX)\n"
           "        maxChars = INPUT_PROMPT_MAX;\n\n"
-          "    gfx_SetColor(_prompt_fg);\n"
-          "    gfx_SetTextFGColor(_prompt_fg);\n"
-          "    gfx_SetTextBGColor(_prompt_bg);\n"
-          "    gfx_SetTextTransparentColor(_prompt_tp());\n\n"
+          "    SetColor(_prompt_fg);\n"
+          "    SetTextFGColor(_prompt_fg);\n"
+          "    SetTextBGColor(_prompt_bg);\n"
+          "    SetTextTransparentColor(_prompt_tp());\n\n"
           "    switch (_input_device)\n    {\n"
           f"{cases}\n"
           "    }\n\n"
-          "    gfx_SetColor(_rest_color);\n"
-          "    gfx_SetTextFGColor(_rest_fg);\n"
-          "    gfx_SetTextBGColor(_rest_bg);\n"
-          "    gfx_SetTextTransparentColor(_rest_tp);\n\n"
+          "    SetColor(_rest_color);\n"
+          "    SetTextFGColor(_rest_fg);\n"
+          "    SetTextBGColor(_rest_bg);\n"
+          "    SetTextTransparentColor(_rest_tp);\n\n"
           "    Input_Scan();\n"
           "    Input_Scan();\n\n"
           "    return result;\n}"

@@ -1,4 +1,4 @@
-﻿#define SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +30,7 @@ static void make_path(const char *name, char *out, size_t n)
     snprintf(out, n, "%s%s.sav", get_base(), name);
 }
 
-uint8_t ti_Open(const char *name, const char *mode)
+uint8_t OpenFile(const char *name, const char *mode)
 {
     char path[1024];
     make_path(name, path, sizeof path);
@@ -59,7 +59,7 @@ static FILE *get(uint8_t slot)
     return (slot > 0 && slot < MAX_SLOTS) ? slots[slot].fp : NULL;
 }
 
-int ti_Close(uint8_t slot)
+int CloseFile(uint8_t slot)
 {
     FILE *fp = get(slot);
     if (!fp) return 0;
@@ -70,43 +70,43 @@ int ti_Close(uint8_t slot)
     return 1;
 }
 
-size_t ti_Read(void *data, size_t size, size_t count, uint8_t slot)
+size_t ReadFile(void *data, size_t size, size_t count, uint8_t slot)
 {
     FILE *fp = get(slot);
     return fp ? fread(data, size, count, fp) : 0;
 }
 
-size_t ti_Write(const void *data, size_t size, size_t count, uint8_t slot)
+size_t WriteFile(const void *data, size_t size, size_t count, uint8_t slot)
 {
     FILE *fp = get(slot);
     return fp ? fwrite(data, size, count, fp) : 0;
 }
 
-int ti_PutC(char ch, uint8_t slot)
+int PutFileChar(char ch, uint8_t slot)
 {
     FILE *fp = get(slot);
     return fp ? fputc((unsigned char)ch, fp) : -1;
 }
 
-int ti_GetC(uint8_t slot)
+int GetFileChar(uint8_t slot)
 {
     FILE *fp = get(slot);
     return fp ? fgetc(fp) : -1;
 }
 
-int ti_Seek(int offset, unsigned origin, uint8_t slot)
+int SeekFile(int offset, unsigned origin, uint8_t slot)
 {
     FILE *fp = get(slot);
     return (fp && fseek(fp, offset, (int)origin) == 0) ? offset : -1;
 }
 
-int ti_Tell(uint8_t slot)
+int TellFile(uint8_t slot)
 {
     FILE *fp = get(slot);
     return fp ? (int)ftell(fp) : -1;
 }
 
-int ti_Rewind(uint8_t slot)
+int RewindFile(uint8_t slot)
 {
     FILE *fp = get(slot);
     if (!fp) return -1;
@@ -114,7 +114,7 @@ int ti_Rewind(uint8_t slot)
     return 0;
 }
 
-uint16_t ti_GetSize(uint8_t slot)
+uint16_t FileSize(uint8_t slot)
 {
     FILE *fp = get(slot);
     if (!fp) return 0;
@@ -125,7 +125,7 @@ uint16_t ti_GetSize(uint8_t slot)
     return (uint16_t)end;
 }
 
-void *ti_GetDataPtr(uint8_t slot)
+void *GetFileDataPtr(uint8_t slot)
 {
     FILE *fp = get(slot);
     if (!fp) return NULL;
@@ -144,9 +144,18 @@ void *ti_GetDataPtr(uint8_t slot)
     return slots[slot].snapshot;
 }
 
-int ti_Delete(const char *name)
+int DeleteFile(const char *name)
 {
     char path[1024];
     make_path(name, path, sizeof path);
     return remove(path) == 0;
+}
+
+
+bool FileExists(const char *name)
+{
+    uint8_t slot = OpenFile(name, "r");
+    if (!slot) return false;
+    CloseFile(slot);
+    return true;
 }

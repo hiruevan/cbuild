@@ -1,4 +1,4 @@
-function Install-cbuild() {
+﻿function Install-cbuild() {
     param (
         [bool]$force,
         [bool]$all,
@@ -146,20 +146,22 @@ function Install-cbuilddir() {
         -Encoding utf8
     # ------ SHIMS ------
 
-    # --- desk_shim ---
-    # directories
+    # --- shim (shared layout: shim\include, common, calc, desk, gc, web) ---
     $shimDir = Join-Path $InstallDir "shim"
     New-Item -ItemType Directory `
         -Path $shimDir -Force | Out-Null
+
+    # --- shim/include (desktop + GameCube API headers) ---
     $includeDir = Join-Path $shimDir "include"
     New-Item -ItemType Directory `
         -Path $includeDir -Force | Out-Null
-    $deskDir = Join-Path $shimDir "desk"
-    New-Item -ItemType Directory `
-        -Path $deskDir -Force | Out-Null
 
-    # Generate files from the embedded source.
-    # include
+    Set-Content `
+        -LiteralPath (Join-Path $includeDir "graphics.h") `
+        -Value @'
+<shim/include/graphics.h>
+'@ `
+        -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $includeDir "files.h") `
         -Value @'
@@ -167,20 +169,59 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
     Set-Content `
-        -LiteralPath (Join-Path $includeDir "graphics.h") `
-        -Value @'
-<shim/include/graphics.h>
-'@ `
-        -Encoding utf8
-
-    Set-Content `
         -LiteralPath (Join-Path $includeDir "random.h") `
         -Value @'
 <shim/include/random.h>
 '@ `
         -Encoding utf8
 
-    # src
+    # --- shim/common (header-only helpers shared by every platform) ---
+    $commonDir = Join-Path $shimDir "common"
+    New-Item -ItemType Directory `
+        -Path $commonDir -Force | Out-Null
+
+    Set-Content `
+        -LiteralPath (Join-Path $commonDir "graphics_common.h") `
+        -Value @'
+<shim/common/graphics_common.h>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $commonDir "random_common.h") `
+        -Value @'
+<shim/common/random_common.h>
+'@ `
+        -Encoding utf8
+
+    # --- shim/calc (TI-84 CE wrappers around CEdev) ---
+    $calcDir = Join-Path $shimDir "calc"
+    New-Item -ItemType Directory `
+        -Path $calcDir -Force | Out-Null
+
+    Set-Content `
+        -LiteralPath (Join-Path $calcDir "graphics.h") `
+        -Value @'
+<shim/calc/graphics.h>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $calcDir "files.h") `
+        -Value @'
+<shim/calc/files.h>
+'@ `
+        -Encoding utf8
+    Set-Content `
+        -LiteralPath (Join-Path $calcDir "random.h") `
+        -Value @'
+<shim/calc/random.h>
+'@ `
+        -Encoding utf8
+
+    # --- shim/desk (Windows / Linux / Webpage) ---
+    $deskDir = Join-Path $shimDir "desk"
+    New-Item -ItemType Directory `
+        -Path $deskDir -Force | Out-Null
+
     Set-Content `
         -LiteralPath (Join-Path $deskDir "ce_internal.h") `
         -Value @'
@@ -200,8 +241,7 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
 
-    # --- gc_shim ---
-    # directories
+    # --- shim/gc (GameCube) ---
     $gcDir = Join-Path $shimDir "gc"
     New-Item -ItemType Directory `
         -Path $gcDir -Force | Out-Null
@@ -231,13 +271,11 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
 
-    # --- web_shim ---
-    # directories
+    # --- shim/web (Webpage shell) ---
     $webDir = Join-Path $shimDir "web"
     New-Item -ItemType Directory `
         -Path $webDir -Force | Out-Null
 
-    # Generate files from the embedded source.
     Set-Content `
         -LiteralPath (Join-Path $webDir "shell.html") `
         -Value @'
@@ -250,37 +288,10 @@ function Install-cbuilddir() {
 <shim/web/style.css>
 '@ `
         -Encoding utf8
-
     Set-Content `
         -LiteralPath (Join-Path $webDir "module.js") `
         -Value @'
 <shim/web/module.js>
-'@ `
-        -Encoding utf8
-
-    # --- calc_shim ---
-    # directories
-    $calDir = Join-Path $shimDir "calc"
-    New-Item -ItemType Directory `
-        -Path $calDir -Force | Out-Null
-
-    # Generate files from the embedded source.
-    Set-Content `
-        -LiteralPath (Join-Path $calDir "files.c") `
-        -Value @'
-<shim/calc/files.c>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $calDir "graphics.c") `
-        -Value @'
-<shim/calc/graphics.c>
-'@ `
-        -Encoding utf8
-    Set-Content `
-        -LiteralPath (Join-Path $calDir "random.c") `
-        -Value @'
-<shim/calc/random.c>
 '@ `
         -Encoding utf8
 
@@ -366,9 +377,9 @@ function Install-cbuilddir() {
 '@ `
         -Encoding utf8
 
-    # --- Python-used C Templates ---
+    # --- Python-used C Templates (Inputs) ---
      # directory
-    $templateDir = Join-Path $InstallDir "templates"
+    $templateDir = Join-Path $InstallDir "inputs"
     New-Item -ItemType Directory `
         -Path $templateDir -Force | Out-Null
 
@@ -376,43 +387,43 @@ function Install-cbuilddir() {
     Set-Content `
         -LiteralPath (Join-Path $templateDir "input.h") `
         -Value @'
-<templates/input.h>
+<inputs/input.h>
 '@ `
     -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $templateDir "input.c") `
         -Value @'
-<templates/input.c>
+<inputs/input.c>
 '@ `
     -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $templateDir "gamepad.c") `
         -Value @'
-<templates/gamepad.c>
+<inputs/gamepad.c>
 '@ `
     -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $templateDir "prompt_common.c") `
         -Value @'
-<templates/prompt_common.c>
+<inputs/prompt_common.c>
 '@ `
     -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $templateDir "prompt_calculator.c") `
         -Value @'
-<templates/prompt_calculator.c>
+<inputs/prompt_calculator.c>
 '@ `
     -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $templateDir "prompt_keyboard.c") `
         -Value @'
-<templates/prompt_keyboard.c>
+<inputs/prompt_keyboard.c>
 '@ `
     -Encoding utf8
     Set-Content `
         -LiteralPath (Join-Path $templateDir "prompt_gamepad.c") `
         -Value @'
-<templates/prompt_gamepad.c>
+<inputs/prompt_gamepad.c>
 '@ `
     -Encoding utf8
 

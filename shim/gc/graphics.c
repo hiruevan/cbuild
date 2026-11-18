@@ -21,8 +21,8 @@
 #include <ogc/color.h>
 #include "graphics.h"
 
-#define LCD_W GFX_LCD_WIDTH
-#define LCD_H GFX_LCD_HEIGHT
+#define LCD_W LCD_WIDTH
+#define LCD_H LCD_HEIGHT
 
 #define SHIM_FIFO_SIZE (256*1024)
 
@@ -80,7 +80,7 @@ static const uint8_t font8x8[95][8] = {
 static uint8_t  bufs[2][LCD_W * LCD_H];
 static uint8_t *display_buf = bufs[0];
 static uint8_t *draw_buf    = bufs[1];
-uint16_t gfx_palette[256];
+uint16_t Palette[256];
 
 static uint8_t  color_idx = 0;
 static uint8_t  transparent_idx = 0;
@@ -146,7 +146,7 @@ static void present_cpu(void)
     if (!rmode || !xfb_cpu[whichfb]) return;
 
     uint32_t lut[256];
-    for (int i = 0; i < 256; i++) lut[i] = ycbycr_from_1555(gfx_palette[i]);
+    for (int i = 0; i < 256; i++) lut[i] = ycbycr_from_1555(Palette[i]);
 
     const int w = rmode->fbWidth;            /* pixels per XFB row */
     const int h = rmode->xfbHeight;          /* rows */
@@ -192,7 +192,7 @@ static void present_gx(void)
     if (!rgbtex || !rmode) return;
 
     uint16_t lut[256];
-    for (int i = 0; i < 256; i++) lut[i] = rgb565_from_1555(gfx_palette[i]);
+    for (int i = 0; i < 256; i++) lut[i] = rgb565_from_1555(Palette[i]);
 
     /*
      * GX_TF_RGB565 is stored as 4x4-pixel tiles (16 texels per tile, row-major
@@ -272,7 +272,7 @@ static void present(void)
 #endif
 }
 
-void gfx_Begin(void)
+void DrawBegin(void)
 {
     VIDEO_Init();
     PAD_Init();
@@ -335,7 +335,7 @@ void gfx_Begin(void)
     if (!rgbtex) rgbtex = memalign(32, LCD_W * LCD_H * 2);
 #endif
 
-    gfx_SetDefaultPalette(gfx_8bpp);
+    SetDefaultPalette(MODE_8BPP);
     memset(bufs, 0, sizeof bufs);
     display_buf = bufs[0];
     draw_buf = bufs[1];
@@ -345,7 +345,7 @@ void gfx_Begin(void)
     present();
 }
 
-void gfx_End(void)
+void DrawEnd(void)
 {
 #ifdef GC_PRESENT_GX
     if (rgbtex) free(rgbtex);
@@ -357,7 +357,7 @@ void gfx_End(void)
 /* Palette                                                                   */
 /* ------------------------------------------------------------------------ */
 
-void gfx_SetDefaultPalette(gfx_mode_t mode)
+void SetDefaultPalette(GraphicsMode mode)
 {
     (void)mode;
     for (int i = 0; i < 256; i++) {
@@ -365,18 +365,18 @@ void gfx_SetDefaultPalette(gfx_mode_t mode)
         r = (r << 5) | (r << 2) | (r >> 1);
         g = (g << 5) | (g << 2) | (g >> 1);
         b = (b << 6) | (b << 4) | (b << 2) | b;
-        gfx_palette[i] = gfx_RGBTo1555(r, g, b);
+        Palette[i] = RGBTo1555(r, g, b);
     }
 }
 
 /* `size` is in BYTES (as on the calculator); `palette` is an array of native uint16_t 1555 entries. */
-void gfx_SetPalette(const void *palette, uint24_t size, uint8_t offset)
+void SetPalette(const void *palette, uint24_t size, uint8_t offset)
 {
     const uint16_t *p = (const uint16_t *)palette;
     unsigned count = size / 2;
     if (!p) return;
     for (unsigned i = 0; i < count && (offset + i) < 256; i++)
-        gfx_palette[offset + i] = p[i];
+        Palette[offset + i] = p[i];
 }
 
 /* ------------------------------------------------------------------------ */
@@ -385,12 +385,12 @@ void gfx_SetPalette(const void *palette, uint24_t size, uint8_t offset)
 
 static uint8_t *other_buf(void) { return display_buf == bufs[0] ? bufs[1] : bufs[0]; }
 
-void gfx_SetDraw(uint8_t location) { draw_buf = (location == gfx_screen) ? display_buf : other_buf(); }
-uint8_t gfx_GetDraw(void) { return draw_buf == display_buf ? gfx_screen : gfx_buffer; }
-void gfx_SetDrawScreen(void) { gfx_SetDraw(gfx_screen); }
-void gfx_SetDrawBuffer(void) { gfx_SetDraw(gfx_buffer); }
+void SetDraw(uint8_t location) { draw_buf = (location == LOC_SCREEN) ? display_buf : other_buf(); }
+uint8_t GetDraw(void) { return draw_buf == display_buf ? LOC_SCREEN : LOC_BUFFER; }
+void SetDrawScreen(void) { SetDraw(LOC_SCREEN); }
+void SetDrawBuffer(void) { SetDraw(LOC_BUFFER); }
 
-void gfx_SwapDraw(void)
+void SwapDraw(void)
 {
     uint8_t *old_display = display_buf;
     display_buf = draw_buf;
@@ -398,25 +398,25 @@ void gfx_SwapDraw(void)
     present();
 }
 
-void gfx_Wait(void) { present(); }
+void Wait(void) { present(); }
 
-void gfx_Blit(gfx_location_t src)
+void Blit(DrawLocation src)
 {
-    if (src == gfx_buffer) memcpy(display_buf, other_buf(), LCD_W * LCD_H);
+    if (src == LOC_BUFFER) memcpy(display_buf, other_buf(), LCD_W * LCD_H);
     else                   memcpy(other_buf(), display_buf, LCD_W * LCD_H);
     present();
 }
-void gfx_BlitBuffer(void) { gfx_Blit(gfx_buffer); }
-void gfx_BlitScreen(void) { gfx_Blit(gfx_screen); }
+void BlitBuffer(void) { Blit(LOC_BUFFER); }
+void BlitScreen(void) { Blit(LOC_SCREEN); }
 
 /* ------------------------------------------------------------------------ */
 /* Drawing (mirrors desk_shim)                                               */
 /* ------------------------------------------------------------------------ */
 
-uint8_t gfx_SetColor(uint8_t i) { uint8_t o = color_idx; color_idx = i; return o; }
-uint8_t gfx_SetTransparentColor(uint8_t i) { uint8_t o = transparent_idx; transparent_idx = i; return o; }
+uint8_t SetColor(uint8_t i) { uint8_t o = color_idx; color_idx = i; return o; }
+uint8_t SetTransparentColor(uint8_t i) { uint8_t o = transparent_idx; transparent_idx = i; return o; }
 
-void gfx_SetClipRegion(int xmin, int ymin, int xmax, int ymax)
+void SetClipRegion(int xmin, int ymin, int xmax, int ymax)
 {
     clip_x0 = xmin < 0 ? 0 : xmin;
     clip_y0 = ymin < 0 ? 0 : ymin;
@@ -424,37 +424,37 @@ void gfx_SetClipRegion(int xmin, int ymin, int xmax, int ymax)
     clip_y1 = ymax > LCD_H ? LCD_H : ymax;
 }
 
-void gfx_FillScreen(uint8_t c) { memset(draw_buf, c, LCD_W * LCD_H); }
-void gfx_ZeroScreen(void) { memset(draw_buf, 0, LCD_W * LCD_H); }
+void FillScreen(uint8_t c) { memset(draw_buf, c, LCD_W * LCD_H); }
+void ZeroScreen(void) { memset(draw_buf, 0, LCD_W * LCD_H); }
 
 static inline void put(int x, int y, uint8_t c)
 {
     if (x >= clip_x0 && x < clip_x1 && y >= clip_y0 && y < clip_y1) draw_buf[y * LCD_W + x] = c;
 }
 
-void gfx_SetPixel(uint24_t x, uint8_t y) { put((int)x, y, color_idx); }
-uint8_t gfx_GetPixel(uint24_t x, uint8_t y)
+void SetPixel(uint24_t x, uint8_t y) { put((int)x, y, color_idx); }
+uint8_t GetPixel(uint24_t x, uint8_t y)
 {
     return (x < LCD_W && y < LCD_H) ? draw_buf[y * LCD_W + x] : 0;
 }
 
-void gfx_HorizLine(int x, int y, int len)
+void HorizLine(int x, int y, int len)
 {
     if (len <= 0 || y < clip_y0 || y >= clip_y1) return;
     int x0 = x < clip_x0 ? clip_x0 : x, x1 = (x + len) > clip_x1 ? clip_x1 : (x + len);
     if (x1 > x0) memset(draw_buf + y * LCD_W + x0, color_idx, x1 - x0);
 }
-void gfx_HorizLine_NoClip(uint24_t x, uint8_t y, uint24_t len) { gfx_HorizLine((int)x, y, (int)len); }
+void HorizLine_NoClip(uint24_t x, uint8_t y, uint24_t len) { HorizLine((int)x, y, (int)len); }
 
-void gfx_VertLine(int x, int y, int len)
+void VertLine(int x, int y, int len)
 {
     if (len <= 0 || x < clip_x0 || x >= clip_x1) return;
     int y0 = y < clip_y0 ? clip_y0 : y, y1 = (y + len) > clip_y1 ? clip_y1 : (y + len);
     for (int j = y0; j < y1; j++) draw_buf[j * LCD_W + x] = color_idx;
 }
-void gfx_VertLine_NoClip(uint24_t x, uint8_t y, uint24_t len) { gfx_VertLine((int)x, y, (int)len); }
+void VertLine_NoClip(uint24_t x, uint8_t y, uint24_t len) { VertLine((int)x, y, (int)len); }
 
-void gfx_Line(int x0, int y0, int x1, int y1)
+void Line(int x0, int y0, int x1, int y1)
 {
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
@@ -467,25 +467,25 @@ void gfx_Line(int x0, int y0, int x1, int y1)
         if (e2 <= dx) { err += dx; y0 += sy; }
     }
 }
-void gfx_Line_NoClip(uint24_t x0, uint8_t y0, uint24_t x1, uint8_t y1) { gfx_Line((int)x0, y0, (int)x1, y1); }
+void Line_NoClip(uint24_t x0, uint8_t y0, uint24_t x1, uint8_t y1) { Line((int)x0, y0, (int)x1, y1); }
 
-void gfx_FillRectangle(int x, int y, int w, int h)
+void FillRectangle(int x, int y, int w, int h)
 {
-    for (int j = 0; j < h; j++) gfx_HorizLine(x, y + j, w);
+    for (int j = 0; j < h; j++) HorizLine(x, y + j, w);
 }
-void gfx_FillRectangle_NoClip(uint24_t x, uint8_t y, uint24_t w, uint8_t h) { gfx_FillRectangle((int)x, y, (int)w, h); }
+void FillRectangle_NoClip(uint24_t x, uint8_t y, uint24_t w, uint8_t h) { FillRectangle((int)x, y, (int)w, h); }
 
-void gfx_Rectangle(int x, int y, int w, int h)
+void Rectangle(int x, int y, int w, int h)
 {
     if (w <= 0 || h <= 0) return;
-    gfx_HorizLine(x, y, w);
-    gfx_HorizLine(x, y + h - 1, w);
-    gfx_VertLine(x, y, h);
-    gfx_VertLine(x + w - 1, y, h);
+    HorizLine(x, y, w);
+    HorizLine(x, y + h - 1, w);
+    VertLine(x, y, h);
+    VertLine(x + w - 1, y, h);
 }
-void gfx_Rectangle_NoClip(uint24_t x, uint8_t y, uint24_t w, uint8_t h) { gfx_Rectangle((int)x, y, (int)w, h); }
+void Rectangle_NoClip(uint24_t x, uint8_t y, uint24_t w, uint8_t h) { Rectangle((int)x, y, (int)w, h); }
 
-void gfx_Circle(int cx, int cy, uint24_t radius)
+void Circle(int cx, int cy, uint24_t radius)
 {
     int x = (int)radius, y = 0, err = 1 - x;
     while (x >= y) {
@@ -498,46 +498,46 @@ void gfx_Circle(int cx, int cy, uint24_t radius)
         else { x--; err += 2 * (y - x) + 1; }
     }
 }
-void gfx_Circle_NoClip(uint24_t x, uint8_t y, uint8_t r) { gfx_Circle((int)x, y, r); }
+void Circle_NoClip(uint24_t x, uint8_t y, uint8_t r) { Circle((int)x, y, r); }
 
-void gfx_FillCircle(int cx, int cy, uint24_t radius)
+void FillCircle(int cx, int cy, uint24_t radius)
 {
     int r = (int)radius;
     for (int dy = -r; dy <= r; dy++) {
         int dx = (int)floor(sqrt((double)(r * r - dy * dy)) + 0.5);
-        gfx_HorizLine(cx - dx, cy + dy, 2 * dx + 1);
+        HorizLine(cx - dx, cy + dy, 2 * dx + 1);
     }
 }
-void gfx_FillCircle_NoClip(uint24_t x, uint8_t y, uint8_t r) { gfx_FillCircle((int)x, y, r); }
+void FillCircle_NoClip(uint24_t x, uint8_t y, uint8_t r) { FillCircle((int)x, y, r); }
 
-gfx_sprite_t *gfx_internal_init_sprite(void *mem, uint8_t w, uint8_t h)
+Sprite *internal_init_sprite(void *mem, uint8_t w, uint8_t h)
 {
-    gfx_sprite_t *s = (gfx_sprite_t *)mem;
+    Sprite *s = (Sprite *)mem;
     if (s) { s->width = w; s->height = h; }
     return s;
 }
 
-gfx_sprite_t *gfx_MallocSprite(uint8_t w, uint8_t h)
+Sprite *MallocSprite(uint8_t w, uint8_t h)
 {
-    return gfx_internal_init_sprite(malloc(2 + (size_t)w * h), w, h);
+    return internal_init_sprite(malloc(2 + (size_t)w * h), w, h);
 }
 
-void gfx_ShiftLeft(uint24_t n)
+void LCDShiftLeft(uint24_t n)
 {
     if (n == 0 || n >= LCD_W) return;
     for (int y = 0; y < LCD_H; y++) memmove(draw_buf + y * LCD_W, draw_buf + y * LCD_W + n, LCD_W - n);
 }
-void gfx_ShiftRight(uint24_t n)
+void LCDShiftRight(uint24_t n)
 {
     if (n == 0 || n >= LCD_W) return;
     for (int y = 0; y < LCD_H; y++) memmove(draw_buf + y * LCD_W + n, draw_buf + y * LCD_W, LCD_W - n);
 }
-void gfx_ShiftUp(uint24_t n)
+void LCDShiftUp(uint24_t n)
 {
     if (n == 0 || n >= LCD_H) return;
     memmove(draw_buf, draw_buf + n * LCD_W, (size_t)(LCD_H - n) * LCD_W);
 }
-void gfx_ShiftDown(uint24_t n)
+void LCDShiftDown(uint24_t n)
 {
     if (n == 0 || n >= LCD_H) return;
     memmove(draw_buf + n * LCD_W, draw_buf, (size_t)(LCD_H - n) * LCD_W);
@@ -549,7 +549,7 @@ void gfx_ShiftDown(uint24_t n)
  * is far slower than a desktop CPU, so a per-pixel clip test here is what
  * makes tilemap-heavy frames take longer than a vblank.
  */
-static void blit_sprite(const gfx_sprite_t *s, int x, int y, int sw, int sh, int transparent)
+static void blit_sprite(const Sprite *s, int x, int y, int sw, int sh, int transparent)
 {
     if (!s || sw < 1 || sh < 1) return;
     const int w = s->width, h = s->height;
@@ -588,16 +588,16 @@ static void blit_sprite(const gfx_sprite_t *s, int x, int y, int sw, int sh, int
     }
 }
 
-void gfx_Sprite(const gfx_sprite_t *s, int x, int y) { blit_sprite(s, x, y, 1, 1, 0); }
-void gfx_Sprite_NoClip(const gfx_sprite_t *s, uint24_t x, uint8_t y) { blit_sprite(s, (int)x, y, 1, 1, 0); }
-void gfx_TransparentSprite(const gfx_sprite_t *s, int x, int y) { blit_sprite(s, x, y, 1, 1, 1); }
-void gfx_TransparentSprite_NoClip(const gfx_sprite_t *s, uint24_t x, uint8_t y) { blit_sprite(s, (int)x, y, 1, 1, 1); }
-void gfx_ScaledSprite_NoClip(const gfx_sprite_t *s, uint24_t x, uint8_t y, uint8_t ws, uint8_t hs)
+void DrawSprite(const Sprite *s, int x, int y) { blit_sprite(s, x, y, 1, 1, 0); }
+void DrawSprite_NoClip(const Sprite *s, uint24_t x, uint8_t y) { blit_sprite(s, (int)x, y, 1, 1, 0); }
+void DrawTransparentSprite(const Sprite *s, int x, int y) { blit_sprite(s, x, y, 1, 1, 1); }
+void DrawTransparentSprite_NoClip(const Sprite *s, uint24_t x, uint8_t y) { blit_sprite(s, (int)x, y, 1, 1, 1); }
+void DrawScaledSprite_NoClip(const Sprite *s, uint24_t x, uint8_t y, uint8_t ws, uint8_t hs)
 { blit_sprite(s, (int)x, y, ws, hs, 0); }
-void gfx_ScaledTransparentSprite_NoClip(const gfx_sprite_t *s, uint24_t x, uint8_t y, uint8_t ws, uint8_t hs)
+void DrawScaledTransparentSprite_NoClip(const Sprite *s, uint24_t x, uint8_t y, uint8_t ws, uint8_t hs)
 { blit_sprite(s, (int)x, y, ws, hs, 1); }
 
-gfx_sprite_t *gfx_GetSprite(gfx_sprite_t *out, int x, int y)
+Sprite *GetSprite(Sprite *out, int x, int y)
 {
     for (int j = 0; j < out->height; j++)
         for (int i = 0; i < out->width; i++) {
@@ -609,7 +609,7 @@ gfx_sprite_t *gfx_GetSprite(gfx_sprite_t *out, int x, int y)
 }
 
 /* Naming follows graphx: FlipSpriteY mirrors left-right, FlipSpriteX mirrors top-bottom. */
-gfx_sprite_t *gfx_FlipSpriteY(const gfx_sprite_t *in, gfx_sprite_t *out)
+Sprite *FlipSpriteY(const Sprite *in, Sprite *out)
 {
     out->width = in->width; out->height = in->height;
     for (int j = 0; j < in->height; j++)
@@ -618,7 +618,7 @@ gfx_sprite_t *gfx_FlipSpriteY(const gfx_sprite_t *in, gfx_sprite_t *out)
     return out;
 }
 
-gfx_sprite_t *gfx_FlipSpriteX(const gfx_sprite_t *in, gfx_sprite_t *out)
+Sprite *FlipSpriteX(const Sprite *in, Sprite *out)
 {
     out->width = in->width; out->height = in->height;
     for (int j = 0; j < in->height; j++)
@@ -627,7 +627,7 @@ gfx_sprite_t *gfx_FlipSpriteX(const gfx_sprite_t *in, gfx_sprite_t *out)
     return out;
 }
 
-static void draw_tilemap(const gfx_tilemap_t *t, uint24_t xo, uint24_t yo, int transparent)
+static void draw_tilemap(const Tilemap *t, uint24_t xo, uint24_t yo, int transparent)
 {
     unsigned tw = t->tile_width ? t->tile_width : 1, th = t->tile_height ? t->tile_height : 1;
     unsigned col0 = xo / tw, row0 = yo / th;
@@ -636,31 +636,31 @@ static void draw_tilemap(const gfx_tilemap_t *t, uint24_t xo, uint24_t yo, int t
         for (unsigned c = 0; c < t->draw_width; c++) {
             unsigned mc = col0 + c, mr = row0 + r;
             if (mc >= t->width || mr >= t->height) continue;
-            const gfx_sprite_t *s = t->tiles[t->map[mr * t->width + mc]];
+            const Sprite *s = t->tiles[t->map[mr * t->width + mc]];
             blit_sprite(s, px0 + (int)(c * tw), py0 + (int)(r * th), 1, 1, transparent);
         }
     }
 }
-void gfx_Tilemap(const gfx_tilemap_t *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 0); }
-void gfx_Tilemap_NoClip(const gfx_tilemap_t *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 0); }
-void gfx_TransparentTilemap(const gfx_tilemap_t *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 1); }
-void gfx_TransparentTilemap_NoClip(const gfx_tilemap_t *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 1); }
+void DrawTilemap(const Tilemap *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 0); }
+void DrawTilemap_NoClip(const Tilemap *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 0); }
+void DrawTransparentTilemap(const Tilemap *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 1); }
+void DrawTransparentTilemap_NoClip(const Tilemap *t, uint24_t xo, uint24_t yo) { draw_tilemap(t, xo, yo, 1); }
 
 /* ------------------------------------------------------------------------ */
 /* Text                                                                      */
 /* ------------------------------------------------------------------------ */
 
-uint8_t gfx_SetTextFGColor(uint8_t c) { uint8_t o = text_fg; text_fg = c; return o; }
-uint8_t gfx_SetTextBGColor(uint8_t c) { uint8_t o = text_bg; text_bg = c; return o; }
-uint8_t gfx_SetTextTransparentColor(uint8_t c) { uint8_t o = text_trans; text_trans = c; return o; }
-void gfx_SetTextScale(uint8_t ws, uint8_t hs) { text_sx = ws ? ws : 1; text_sy = hs ? hs : 1; }
-void gfx_SetTextXY(int x, int y) { text_x = x; text_y = y; }
-int gfx_GetTextX(void) { return text_x; }
-int gfx_GetTextY(void) { return text_y; }
-uint24_t gfx_GetCharWidth(const char c) { (void)c; return 8u * text_sx; }
-uint24_t gfx_GetStringWidth(const char *s) { return (uint24_t)strlen(s) * 8u * text_sx; }
+uint8_t SetTextFGColor(uint8_t c) { uint8_t o = text_fg; text_fg = c; return o; }
+uint8_t SetTextBGColor(uint8_t c) { uint8_t o = text_bg; text_bg = c; return o; }
+uint8_t SetTextTransparentColor(uint8_t c) { uint8_t o = text_trans; text_trans = c; return o; }
+void SetTextScale(uint8_t ws, uint8_t hs) { text_sx = ws ? ws : 1; text_sy = hs ? hs : 1; }
+void SetTextXY(int x, int y) { text_x = x; text_y = y; }
+int GetTextX(void) { return text_x; }
+int GetTextY(void) { return text_y; }
+uint24_t GetCharWidth(const char c) { (void)c; return 8u * text_sx; }
+uint24_t GetStringWidth(const char *s) { return (uint24_t)strlen(s) * 8u * text_sx; }
 
-void gfx_PrintChar(const char ch)
+void PrintChar(const char ch)
 {
     unsigned idx = (unsigned char)ch;
     if (idx < 32 || idx > 126) idx = '?';
@@ -669,35 +669,35 @@ void gfx_PrintChar(const char ch)
     uint8_t saved = color_idx;
     if (text_bg != text_trans) {
         color_idx = text_bg;
-        gfx_FillRectangle(text_x, text_y, 8 * text_sx, 8 * text_sy);
+        FillRectangle(text_x, text_y, 8 * text_sx, 8 * text_sy);
     }
     color_idx = text_fg;
     for (int row = 0; row < 8; row++)
         for (int col = 0; col < 8; col++)
             if ((g[row] >> col) & 1)
-                gfx_FillRectangle(text_x + col * text_sx, text_y + row * text_sy, text_sx, text_sy);
+                FillRectangle(text_x + col * text_sx, text_y + row * text_sy, text_sx, text_sy);
     color_idx = saved;
     text_x += 8 * text_sx;
 }
 
-void gfx_PrintString(const char *s) { while (*s) gfx_PrintChar(*s++); }
+void PrintString(const char *s) { while (*s) PrintChar(*s++); }
 
-void gfx_PrintStringXY(const char *s, int x, int y)
+void PrintStringXY(const char *s, int x, int y)
 {
-    gfx_SetTextXY(x, y);
-    gfx_PrintString(s);
+    SetTextXY(x, y);
+    PrintString(s);
 }
 
-void gfx_PrintInt(int n, uint8_t length)
+void PrintInt(int n, uint8_t length)
 {
     char buf[32];
     snprintf(buf, sizeof buf, "%0*d", (int)length, n);
-    gfx_PrintString(buf);
+    PrintString(buf);
 }
 
-void gfx_PrintUInt(unsigned int n, uint8_t length)
+void PrintUInt(unsigned int n, uint8_t length)
 {
     char buf[32];
     snprintf(buf, sizeof buf, "%0*u", (int)length, n);
-    gfx_PrintString(buf);
+    PrintString(buf);
 }

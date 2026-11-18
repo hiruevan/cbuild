@@ -1,4 +1,4 @@
-﻿import sys, os, re
+import sys, os, re
 from generationhelper import *
 
 def c_name(s):
@@ -42,7 +42,7 @@ def write_header(sprites, h_path):
                 f.write("\n")
 
             f.write("};\n")
-            f.write(f"static gfx_sprite_t *{name}_sprite = (gfx_sprite_t*){name}_data;\n\n")
+            f.write(f"static Sprite *{name}_sprite = (Sprite*){name}_data;\n\n")
             f.write(f"#define {name.upper()}_WIDTH {w}\n")
             f.write(f"#define {name.upper()}_HEIGHT {h}\n\n")
 

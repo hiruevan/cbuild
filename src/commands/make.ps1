@@ -261,7 +261,7 @@ function Invoke-cbuildmake() {
 
         $projectRoot = (Get-Location).Path
         $cbuildRoot = Join-Path $HOME "cbuild"
-        $gcShimRoot = Join-Path $cbuildRoot "shim/gc"
+        $gcShimRoot = Join-Path $cbuildRoot "shim\gc"
 
         if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
             throw "Docker was not found. Run 'cbuild install -gc'."

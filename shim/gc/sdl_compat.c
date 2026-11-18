@@ -287,7 +287,7 @@ void SDL_Delay(uint32_t ms)
 {
     /*
      * Shared code uses SDL_Delay(16) as per-frame pacing. On this target every
-     * gfx_SwapDraw()/gfx_Wait() already blocks until vblank, so honouring that
+     * SwapDraw()/Wait() already blocks until vblank, so honouring that
      * delay too would stack a second frame of latency onto every loop
      * iteration. Longer delays are real waits and are honoured.
      */

@@ -2,7 +2,7 @@
 
 **cbuild** is a Windows PowerShell build helper for C projects targeting the TI-84 Plus CE calculator, Windows desktop, Linux desktop, and stand-alone Webpage output. It generates the appropriate Makefile, CMake project, or webpage output, builds the project, and organizes the outputs.
 
-Current source version: **1.10.7**.
+Current source version: **1.10.9**.
 
 | Target | Build environment | Output directory |
 |---|---|---|
@@ -13,7 +13,7 @@ Current source version: **1.10.7**.
 | Linux ARM hard-float (`-lnx armhf`) | WSL2 Ubuntu + ARM hard-float cross-compiler + SDL2 | `bin/lnx-armhf` |
 | Stand-alone Webpage (`-webp`) | Emscripten via WSL2 + SDL2 | `bin/webp` |
 
-The Windows and Linux desktop builds use `desk_shim`, a compatibility layer that implements selected calculator APIs on desktop. It does not guarantee that every CE-specific API or behavior is supported.
+The Windows and Linux desktop builds use `shim`, a compatibility layer that implements selected calculator APIs on desktop. It does not guarantee that every CE-specific API or behavior is supported.
 
 > **Platform note:** cbuild's installer and command-line interface currently run in Windows PowerShell. Linux builds run through WSL2. **macOS is not yet a supported cbuild target.** The CMake template contains an initial Apple bundle branch, but there is not yet a macOS install/build/clean/export workflow. See [macOS support: implementation plan](#macos-support-implementation-plan).
 
@@ -102,21 +102,14 @@ The installed files are placed under your home directory:
 
 ```text
 
-$HOME\\
-
-└── cbuild\\
-
+$HOME\
+└── cbuild\
     ├── cbuild.ps1
-
     ├── help.txt
-
     ├── requirements.txt
-
-    ├── desk_shim\\
-
-    ├──python\\
-
-    └── toolchains\\
+    ├── shim\
+    ├──python\
+    └── toolchains\
 
 ```
 
@@ -188,7 +181,7 @@ cbuild -help
 
 ```
 
-The current source version is `1.10.7`.
+The current source version is `1.10.9`.
 
 ## Project setup
 
@@ -715,4 +708,4 @@ Complete-CBuild -NoInstall
 
 ```
 
-If you change files under `src`, `toolchains`, `desk_shim`, `python`, `requirements.txt`, or `help.txt`, regenerate `cbuild.ps1` so the packaged installer includes those changes.
+If you change files under `src`, `toolchains`, `shim`, `python`, `requirements.txt`, or `help.txt`, regenerate `cbuild.ps1` so the packaged installer includes those changes.

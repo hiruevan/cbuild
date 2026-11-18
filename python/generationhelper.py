@@ -2,11 +2,11 @@ import os
 from pathlib import Path
 from string import Template
 
-TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+INPUT_TEMPLATE_DIR = Path(__file__).parent.parent / "inputs"
 
 
-def load_template(name: str) -> Template:
-    return Template((TEMPLATE_DIR / name).read_text(encoding="utf-8"))
+def load_input_template(name: str) -> Template:
+    return Template((INPUT_TEMPLATE_DIR / name).read_text(encoding="utf-8"))
 
 
 def load_file(path):

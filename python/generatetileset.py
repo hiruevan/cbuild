@@ -1,10 +1,10 @@
-﻿import re
+import re
 import sys
 from pathlib import Path
 
-# Matches: static gfx_sprite_t *NAME_sprite = (gfx_sprite_t*)NAME_data;
+# Matches: static Sprite *NAME_sprite = (Sprite*)NAME_data;
 SPRITE_RE = re.compile(
-    r'static\s+gfx_sprite_t\s*\*\s*(\w+)_sprite\s*='
+    r'static\s+Sprite\s*\*\s*(\w+)_sprite\s*='
 )
 
 
@@ -67,7 +67,7 @@ def main():
     names = extract_sprite_names(text)
 
     if not names:
-        print("No sprites found (looking for 'static gfx_sprite_t *NAME_sprite = ...').")
+        print("No sprites found (looking for 'static Sprite *NAME_sprite = ...').")
         sys.exit(1)
     print(src_path.name)
     output = build_tileset_h(names, src_path.name)

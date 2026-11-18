@@ -4,9 +4,9 @@
 #define PROMPT_COLS 10
 #define PROMPT_ROWS 7
 
-#ifndef GFX_LCD_WIDTH
-#define GFX_LCD_WIDTH  320
-#define GFX_LCD_HEIGHT 240
+#ifndef LCD_WIDTH
+#define LCD_WIDTH  320
+#define LCD_HEIGHT 240
 #endif
 
 static uint8_t _prompt_fg = 0;
@@ -59,20 +59,20 @@ typedef struct {
 static void _prompt_draw(const InputPromptView *v)
 {
     const int cell_w = 28, cell_h = 18;
-    int grid_x = (GFX_LCD_WIDTH - PROMPT_COLS * cell_w) / 2;
+    int grid_x = (LCD_WIDTH - PROMPT_COLS * cell_w) / 2;
     int grid_y = 60;
 
-    gfx_FillScreen(_prompt_bg);
-    gfx_SetColor(_prompt_fg);
-    gfx_SetTextFGColor(_prompt_fg);
-    gfx_SetTextScale(1, 1);
+    FillScreen(_prompt_bg);
+    SetColor(_prompt_fg);
+    SetTextFGColor(_prompt_fg);
+    SetTextScale(1, 1);
 
-    gfx_PrintStringXY(v->title, 10, 10);
+    PrintStringXY(v->title, 10, 10);
 
     /* Text box with a caret after the typed text */
-    gfx_Rectangle(8, 28, GFX_LCD_WIDTH - 16, 16);
-    gfx_PrintStringXY(v->text, 12, 32);
-    gfx_VertLine(12 + (int)strlen(v->text) * 8, 31, 10);
+    Rectangle(8, 28, LCD_WIDTH - 16, 16);
+    PrintStringXY(v->text, 12, 32);
+    VertLine(12 + (int)strlen(v->text) * 8, 31, 10);
 
     if (v->grid)
     {
@@ -83,14 +83,14 @@ static void _prompt_draw(const InputPromptView *v)
             int y = grid_y + (i / v->cols) * cell_h;
 
             if (i == v->sel)
-                gfx_Rectangle(x, y, cell_w - 2, cell_h - 2);
+                Rectangle(x, y, cell_w - 2, cell_h - 2);
 
-            gfx_PrintStringXY(s, x + 10, y + 5);
+            PrintStringXY(s, x + 10, y + 5);
         }
     }
 
-    gfx_PrintStringXY(v->hint, 10, GFX_LCD_HEIGHT - 16);
-    gfx_SwapDraw();
+    PrintStringXY(v->hint, 10, LCD_HEIGHT - 16);
+    SwapDraw();
 }
 
 enum { PK_UP, PK_DOWN, PK_LEFT, PK_RIGHT, PK_OK, PK_DEL, PK_DONE, PK_CANCEL, PK_N };

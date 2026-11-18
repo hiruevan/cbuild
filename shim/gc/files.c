@@ -43,7 +43,7 @@ typedef struct {
     int write, append;
     int dirty;                        /* memory card file needs writing back */
     int on_card;                      /* m mirrors a memory card file */
-    void *snapshot;                   /* ti_GetDataPtr copy of an SD file */
+    void *snapshot;                   /* GetFileDataPtr copy of an SD file */
 } Slot;
 
 enum { BK_NONE, BK_SD, BK_CARD, BK_RAM };
@@ -191,9 +191,9 @@ done:
     return ok;
 }
 
-/* ---- ti_* API ---------------------------------------------------------- */
+/* ---- file API ---------------------------------------------------------- */
 
-uint8_t ti_Open(const char *name,const char *mode) {
+uint8_t OpenFile(const char *name,const char *mode) {
     if (!valid_name(name)) return 0;
     int i; for(i=0;i<SLOT_COUNT;i++) if(!slots[i].f && !slots[i].m) break;
     if(i==SLOT_COUNT) return 0;
@@ -252,7 +252,7 @@ static Slot *get_slot(uint8_t s) {
     Slot *p = &slots[s-1];
     return (p->f || p->m) ? p : NULL;
 }
-int ti_Close(uint8_t h) {
+int CloseFile(uint8_t h) {
     Slot *s=get_slot(h); if(!s) return 0;
     if (s->f) fclose(s->f);
     if (s->m && s->on_card) {
@@ -264,7 +264,7 @@ int ti_Close(uint8_t h) {
     memset(s,0,sizeof *s);
     return 1;
 }
-size_t ti_Read(void *d,size_t z,size_t n,uint8_t h) {
+size_t ReadFile(void *d,size_t z,size_t n,uint8_t h) {
     Slot *s=get_slot(h); if(!s||!z) return 0;
     if (s->f) return fread(d,z,n,s->f);
     size_t avail = s->pos < s->m->size ? (s->m->size - s->pos)/z : 0;
@@ -273,7 +273,7 @@ size_t ti_Read(void *d,size_t z,size_t n,uint8_t h) {
     s->pos += n*z;
     return n;
 }
-size_t ti_Write(const void *d,size_t z,size_t n,uint8_t h) {
+size_t WriteFile(const void *d,size_t z,size_t n,uint8_t h) {
     Slot *s=get_slot(h); if(!s||!z) return 0;
     if (s->f) return fwrite(d,z,n,s->f);
     if (!s->write) return 0;
@@ -288,18 +288,18 @@ size_t ti_Write(const void *d,size_t z,size_t n,uint8_t h) {
     s->dirty = 1;
     return n;
 }
-int ti_PutC(char c,uint8_t h) {
+int PutFileChar(char c,uint8_t h) {
     Slot *s=get_slot(h); if(!s) return EOF;
     if (s->f) return fputc((unsigned char)c,s->f);
-    return ti_Write(&c,1,1,h) == 1 ? (unsigned char)c : EOF;
+    return WriteFile(&c,1,1,h) == 1 ? (unsigned char)c : EOF;
 }
-int ti_GetC(uint8_t h) {
+int GetFileChar(uint8_t h) {
     Slot *s=get_slot(h); if(!s) return EOF;
     if (s->f) return fgetc(s->f);
     unsigned char c;
-    return ti_Read(&c,1,1,h) == 1 ? c : EOF;
+    return ReadFile(&c,1,1,h) == 1 ? c : EOF;
 }
-int ti_Seek(int o,unsigned origin,uint8_t h) {
+int SeekFile(int o,unsigned origin,uint8_t h) {
     Slot *s=get_slot(h); if(!s) return -1;
     if (s->f) return fseek(s->f,o,origin==0?SEEK_SET:(origin==1?SEEK_CUR:SEEK_END)) == 0 ? o : -1;
     long base = origin==0 ? 0 : origin==1 ? (long)s->pos : (long)s->m->size;
@@ -308,16 +308,16 @@ int ti_Seek(int o,unsigned origin,uint8_t h) {
     s->pos = (size_t)np;
     return o;
 }
-int ti_Tell(uint8_t h) {
+int TellFile(uint8_t h) {
     Slot *s=get_slot(h); if(!s) return -1;
     return s->f ? (int)ftell(s->f) : (int)s->pos;
 }
-int ti_Rewind(uint8_t h) {
+int RewindFile(uint8_t h) {
     Slot *s=get_slot(h); if(!s) return -1;
     if (s->f) rewind(s->f); else s->pos = 0;
     return 0;
 }
-uint16_t ti_GetSize(uint8_t h) {
+uint16_t FileSize(uint8_t h) {
     Slot *s=get_slot(h); if(!s) return 0;
     long n;
     if (s->f) {
@@ -325,7 +325,7 @@ uint16_t ti_GetSize(uint8_t h) {
     } else n = (long)s->m->size;
     return (uint16_t)(n<0?0:n>65535?65535:n);
 }
-void *ti_GetDataPtr(uint8_t h) {
+void *GetFileDataPtr(uint8_t h) {
     Slot *s=get_slot(h); if(!s) return NULL;
     if (s->m) {                              /* RAM / card file: pointer to its start */
         if (!mem_reserve(s->m, s->m->size + 1)) return NULL;
@@ -342,7 +342,7 @@ void *ti_GetDataPtr(uint8_t h) {
     fseek(s->f,cur,SEEK_SET);
     return s->snapshot;
 }
-int ti_Delete(const char *name) {
+int DeleteFile(const char *name) {
     if (!valid_name(name)) return 0;
     int bk = ensure_backend();
     if (bk == BK_SD) {
@@ -355,4 +355,12 @@ int ti_Delete(const char *name) {
     if (m) { mem_free(m); ok = 1; }
     if (bk == BK_CARD && CARD_Delete(card_chn, name) >= 0) ok = 1;
     return ok;
+}
+
+bool FileExists(const char *name)
+{
+    uint8_t slot = OpenFile(name, "r");
+    if (!slot) return false;
+    CloseFile(slot);
+    return true;
 }

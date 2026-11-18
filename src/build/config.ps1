@@ -40,7 +40,6 @@ function Read-CBuildConfig {
     if (-not $cfg["SRCDIR"])      { $cfg["SRCDIR"]      = "src" }
     if (-not $cfg["INCLUDE"])     { $cfg["INCLUDE"]     = "include" }
     if (-not $cfg["RESOURCES"])   { $cfg["RESOURCES"]   = "resources" }
-    if (-not $cfg["KEYBINDS"])    { $cfg["KEYBINDS"]    = "keybinds.cfg" }
     if (-not $cfg["SRC"])         { $cfg["SRC"]         = "main.c" }
     if (-not $cfg["ICON"])        { $cfg["ICON"]        = "icon.ico" }
     if ($cfg["PLATFORMS"].Count -eq 0) { $cfg["PLATFORMS"] = @("cal", "win", "lnx")}
